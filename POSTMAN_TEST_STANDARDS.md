@@ -215,7 +215,7 @@ pm.expect(response.roles).to.include("admin");
 **❌ Avoid:**
 ```javascript
 pm.test(`Response contains id in UUID format`, () => {
-    pm.expect(response.id).to.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    pm.expect(response.id).to.match(uuidRegex);
 });
 ```
 
