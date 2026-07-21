@@ -1,4 +1,4 @@
-# Postman JavaScript Test Writing Standards
+# Postman Tests Standards
 
 This guide defines the required conventions for writing test scripts in Postman collections. Following these standards ensures consistency, avoids common false-positive/false-negative bugs, and keeps our test suite reliable and maintainable.
 
