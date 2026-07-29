@@ -53,7 +53,7 @@
     <p id="script-status" class="status"></p>
   </section>
 
-  <section class="card">
+  <section class="card hidden">
     <h2>Bulk actions</h2>
     <div class="bulk-grid">
       <div>
@@ -82,6 +82,19 @@
         <p id="collection-status" class="status"></p>
       </div>
     </div>
+  </section>
+
+  <section class="card">
+    <h2>Data generators</h2>
+    <p>Reusable Pre-request script snippets for generating random test data. Pick any, generate a combined script, then copy/paste it to pre-request tab in Postman.</p>
+    <div id="generator-list"></div>
+    <button id="generator-build-btn">Generate script</button>
+    <textarea id="generator-output" rows="10" readonly></textarea>
+    <div class="row">
+      <button id="generator-copy-btn">Copy to clipboard</button>
+      <button id="generator-download-btn">Download .js file</button>
+    </div>
+    <p id="generator-status" class="status"></p>
   </section>
 
   <script src="/app.js"></script>

@@ -6,6 +6,7 @@ const { walkSchema } = require("../schema/walkSchema");
 const { generateTestScript } = require("../generate/testScript");
 const { buildCollection } = require("../generate/collection");
 const { exportScripts } = require("../generate/exportScripts");
+const { listGenerators, buildPreRequestScript } = require("../generate/dataGenerators");
 
 /**
  * Minimal local web UI so teammates can browse a spec and generate
@@ -76,15 +77,31 @@ function startServer(port) {
   app.post("/api/collection", (req, res) => {
     try {
       if (!currentApi) return res.status(400).json({ error: "Load a spec first." });
-      const { outFile, name, status, filter } = req.body;
+      const { outFile, name, status, filter, generators } = req.body;
       if (!outFile) return res.status(400).json({ error: "Missing output file path." });
+      const preRequestScript = generators && generators.length > 0 ? buildPreRequestScript(generators) : undefined;
       const collection = buildCollection(currentApi, {
         statusCode: status ? Number(status) : undefined,
         pathFilter: filter ? new RegExp(filter) : undefined,
         collectionName: name || undefined,
+        preRequestScript,
       });
       require("fs").writeFileSync(path.resolve(outFile), JSON.stringify(collection, null, 2), "utf8");
       res.json({ itemCount: collection.item.length, outFile });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/generators", (req, res) => {
+    res.json({ generators: listGenerators() });
+  });
+
+  app.post("/api/generators/build", (req, res) => {
+    try {
+      const { selections } = req.body;
+      const script = buildPreRequestScript(selections || []);
+      res.json({ script });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

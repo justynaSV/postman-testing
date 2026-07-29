@@ -7,6 +7,7 @@ const { walkSchema } = require("./schema/walkSchema");
 const { generateTestScript } = require("./generate/testScript");
 const { buildCollection } = require("./generate/collection");
 const { exportScripts } = require("./generate/exportScripts");
+const { listGenerators, buildPreRequestScript } = require("./generate/dataGenerators");
 
 /** Aborts the whole interactive session cleanly on Ctrl+C (prompts default behavior otherwise leaves things hanging). */
 const onCancel = () => {
@@ -121,6 +122,74 @@ async function runExportAll(api) {
   }
 }
 
+/**
+ * Prompts the user to pick zero or more reusable data generators (VIN,
+ * customer, random test name, ...) and, for parameterized ones, their
+ * options. Returns a combined Pre-request Script string (or "" if none
+ * picked).
+ */
+async function promptGeneratorScript() {
+  const { ids } = await prompts(
+    {
+      type: "multiselect",
+      name: "ids",
+      message: "Pick data generator(s) to include (space to select, enter to confirm; leave empty for none)",
+      choices: listGenerators().map((g) => ({ title: g.label, value: g.id })),
+    },
+    { onCancel }
+  );
+
+  if (!ids || ids.length === 0) return "";
+
+  const selections = [];
+  for (const id of ids) {
+    const generator = listGenerators().find((g) => g.id === id);
+    if (generator.params.length === 0) {
+      selections.push({ id });
+      continue;
+    }
+    const paramQuestions = generator.params.map((p) => ({
+      type: "text",
+      name: p.name,
+      message: `[${id}] ${p.label}`,
+      initial: p.default,
+    }));
+    const params = await prompts(paramQuestions, { onCancel });
+    selections.push({ id, params });
+  }
+
+  return buildPreRequestScript(selections);
+}
+
+async function runGeneratorScript() {
+  const script = await promptGeneratorScript();
+  if (!script) {
+    console.log("No generators selected.");
+    return;
+  }
+
+  const { destination } = await prompts(
+    {
+      type: "select",
+      name: "destination",
+      message: "What should I do with the script?",
+      choices: [
+        { title: "Print it here", value: "stdout" },
+        { title: "Save it to a file", value: "file" },
+      ],
+    },
+    { onCancel }
+  );
+
+  if (destination === "file") {
+    const { outFile } = await prompts({ type: "text", name: "outFile", message: "File path to save to", initial: "./pre-request.js" }, { onCancel });
+    fs.writeFileSync(path.resolve(outFile), script, "utf8");
+    console.log(`Saved to ${outFile}`);
+  } else {
+    console.log("\n" + script + "\n");
+  }
+}
+
 async function runFullCollection(api) {
   const { outFile, name, filter, status } = await prompts(
     [
@@ -132,10 +201,17 @@ async function runFullCollection(api) {
     { onCancel }
   );
 
+  const { attachGenerators } = await prompts(
+    { type: "confirm", name: "attachGenerators", message: "Attach a data-generator Pre-request Script to every request?", initial: false },
+    { onCancel }
+  );
+  const preRequestScript = attachGenerators ? await promptGeneratorScript() : undefined;
+
   const collection = buildCollection(api, {
     statusCode: status ? Number(status) : undefined,
     pathFilter: filter ? new RegExp(filter) : undefined,
     collectionName: name || undefined,
+    preRequestScript: preRequestScript || undefined,
   });
 
   fs.writeFileSync(path.resolve(outFile), JSON.stringify(collection, null, 2), "utf8");
@@ -157,6 +233,7 @@ async function runInteractive() {
           { title: "Generate a test script for one endpoint", value: "single" },
           { title: "Export a script file for every endpoint (organized into folders)", value: "exportAll" },
           { title: "Generate a full Postman collection", value: "collection" },
+          { title: "Generate a reusable data-generator Pre-request script (VIN, customer, ...)", value: "generators" },
         ],
       },
       { onCancel }
@@ -165,6 +242,7 @@ async function runInteractive() {
     if (action === "single") await runSingleScript(api);
     else if (action === "exportAll") await runExportAll(api);
     else if (action === "collection") await runFullCollection(api);
+    else if (action === "generators") await runGeneratorScript();
 
     const { more } = await prompts({ type: "confirm", name: "more", message: "Do something else with this spec?", initial: false }, { onCancel });
     again = more;

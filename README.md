@@ -76,6 +76,12 @@ For a large API, generate scoped collections per resource/version instead of one
 node bin/postman-test-gen.js collection --spec "https://your-domain.com/openapi.json" --out warehouse-v1.json --filter "^/v1/warehouse"
 ```
 
+To attach a reusable data-generator [Pre-request Script](#generators--reusable-pre-request-data-generator-scripts) (VIN, customer, ...) to every request in the collection, add `--generators`:
+
+```bash
+node bin/postman-test-gen.js collection --spec examples/sample-openapi.yaml --out generated-collection.json --generators "vin,customer"
+```
+
 ### `export` — write one script file per endpoint, organized into folders
 
 Instead of copy-pasting scripts out of the terminal one endpoint at a time:
@@ -101,13 +107,39 @@ postman-scripts/
 
 Supports `--status`, `--filter`, and `--header` the same as `collection`.
 
+### `generators` — reusable Pre-request data-generator scripts
+
+Separate from schema-derived test scripts, the tool also ships a small library of hand-written [Pre-request Script](https://learning.postman.com/docs/writing-scripts/pre-request-scripts/) snippets for seeding `pm.collectionVariables` with random test data (not tied to any spec). List what's available:
+
+```bash
+node bin/postman-test-gen.js generators
+```
+
+Combine one or more into a single script (printed to stdout, or written with `--out`):
+
+```bash
+node bin/postman-test-gen.js generators --pick "vin,customer"
+```
+
+The `randomTestName` generator takes extra options:
+
+```bash
+node bin/postman-test-gen.js generators --pick randomTestName \
+  --var-name testTireCategory \
+  --name-prefix "Test Tire Category" \
+  --log-label Category \
+  --out pre-request.js
+```
+
+Paste the result into a request's (or a folder's/collection's) **Pre-request Script** tab, or attach it automatically to every generated request with `collection --generators` (see above).
+
 ### `interactive` — guided menu instead of typing flags
 
 ```bash
 node bin/postman-test-gen.js interactive
 ```
 
-(or just `node bin/postman-test-gen.js` with no arguments at all). Prompts you for the spec, then lets you search/pick an endpoint from a list (handy when a spec has hundreds of operations), and walks you through generating a single script, exporting every endpoint's script, or building a full collection — no need to remember exact `--path`/`--method` spelling.
+(or just `node bin/postman-test-gen.js` with no arguments at all). Prompts you for the spec, then lets you search/pick an endpoint from a list (handy when a spec has hundreds of operations), and walks you through generating a single script, exporting every endpoint's script, building a full collection (optionally attaching data generators), or generating a standalone data-generator Pre-request script — no need to remember exact `--path`/`--method` spelling.
 
 ### `ui` — local web page instead of the terminal
 
@@ -115,7 +147,9 @@ node bin/postman-test-gen.js interactive
 node bin/postman-test-gen.js ui
 ```
 
-Starts a local server (default `http://localhost:4747`) with a simple page to load a spec, search/select an endpoint, preview/copy/download its generated script, and trigger bulk export or full-collection generation — useful for teammates who'd rather not use the CLI at all. Use `--port <number>` to change the port.
+Starts a local server (default `http://localhost:4747`) with a simple page to load a spec, search/select an endpoint, preview/copy/download its generated script, and build/copy/download reusable data-generator Pre-request scripts — useful for teammates who'd rather not use the CLI at all. Use `--port <number>` to change the port.
+
+> The Web UI's bulk export/collection-generation section is disabled in this version — use the CLI's `export`/`collection` commands (or `interactive` mode) for those instead.
 
 ## What gets generated
 
@@ -138,11 +172,11 @@ Status-code test is always emitted first, `pm.response.json()` is only parsed af
 
 ```
 bin/postman-test-gen.js     CLI entry point
-src/cli.js                  Commander command definitions (list/script/collection/export/interactive/ui)
+src/cli.js                  Commander command definitions (list/script/collection/export/generators/interactive/ui)
 src/interactive.js          Guided, prompt-based workflow (used by `interactive` and no-args invocation)
 src/spec/                   OpenAPI loading + operation/schema lookup (swagger-parser)
 src/schema/                 Schema walking, regex library, example value generation
-src/generate/               Test script text generation, full collection assembly, per-endpoint export + folder naming
+src/generate/               Test script text generation, full collection assembly, per-endpoint export + folder naming, reusable data-generator scripts (dataGenerators.js)
 src/ui/                     Local web UI (Express server + static HTML/JS/CSS)
 examples/                   Sample OpenAPI spec for trying the tool out
 ```

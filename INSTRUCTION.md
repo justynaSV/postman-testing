@@ -32,10 +32,10 @@ A step-by-step guide for generating Postman test scripts from an OpenAPI/Swagger
    - Adjust the **Status code** field and click **Regenerate** if you want to test a different response (e.g. 404 instead of 200).
    - Click **Copy to clipboard**, then paste directly into your request's **Tests** tab in Postman.
    - Or click **Download .js file** to save it instead.
-7. **Bulk actions** (bottom of the page), if you want more than one script at a time:
-   - **Export a script file per endpoint**: type an output folder (e.g. `./postman-scripts`) and click **Export all**. You'll get one `.js` file per endpoint, organized into folders by API version/resource — just open the folder in your editor and copy whichever file you need.
-   - **Generate full collection**: type an output file path (e.g. `./collection.json`) and click **Generate collection** to get a ready-to-import Postman collection with every endpoint and test script already included.
+7. **Data generators** (bottom of the page): tick the checkboxes for the test-data snippets you want (e.g. VIN, customer, random test name — fill in its extra fields if shown), click **Generate script**, then **Copy to clipboard** or **Download .js file** and paste it into a request's/folder's **Pre-request Script** tab in Postman. These are independent of any spec — no need to load one first.
 8. When you're done, go back to the terminal and press `Ctrl+C` to stop the server.
+
+   > Bulk export / full-collection generation is not available in the Web UI in this version — use **Option B** (interactive mode) or **Option C** (direct `export`/`collection` commands) for those instead.
 
 ---
 
@@ -52,7 +52,8 @@ A step-by-step guide for generating Postman test scripts from an OpenAPI/Swagger
    - Choose what you want to do:
      - **Generate a test script for one endpoint** — search/select the endpoint from the list (type to filter), confirm the status code, then choose to print it or save it to a file.
      - **Export a script file for every endpoint** — choose an output folder; every endpoint gets its own file, organized like a real collection.
-     - **Generate a full Postman collection** — choose an output file path; get one importable `.json` file with everything included.
+     - **Generate a full Postman collection** — choose an output file path; you'll then be asked if you want to attach a data-generator Pre-request Script to every request (pick from the list if so); get one importable `.json` file with everything included.
+     - **Generate a reusable data-generator Pre-request script** — pick one or more generators (e.g. VIN, customer, random test name), fill in any extra options, then choose to print it or save it to a file. Independent of any spec.
 3. When finished, it asks if you want to do something else with the same spec — answer "no" to exit.
 
 ---
@@ -79,6 +80,17 @@ node bin/postman-test-gen.js export --spec <spec> --out ./postman-scripts
 **Generate a full Postman collection:**
 ```bash
 node bin/postman-test-gen.js collection --spec <spec> --out collection.json
+```
+
+**List/generate reusable data-generator Pre-request scripts** (VIN, customer, random test name — not tied to any spec):
+```bash
+node bin/postman-test-gen.js generators
+node bin/postman-test-gen.js generators --pick "vin,customer" --out pre-request.js
+```
+
+Attach generators to every request in a generated collection instead of pasting the script by hand:
+```bash
+node bin/postman-test-gen.js collection --spec <spec> --out collection.json --generators "vin,customer"
 ```
 
 If your spec URL needs an auth header, add it to any of the commands above:

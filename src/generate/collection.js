@@ -22,7 +22,7 @@ function toPostmanPath(path) {
   return { converted, variables };
 }
 
-function buildRequestItem(api, path, method, statusCode) {
+function buildRequestItem(api, path, method, statusCode, preRequestScript) {
   const { operation } = findOperation(api, path, method);
   const responseSchema = getResponseSchema(operation, statusCode);
   const parameters = getParameters(api.paths[path], operation);
@@ -62,19 +62,31 @@ function buildRequestItem(api, path, method, statusCode) {
     };
   }
 
+  const event = [
+    {
+      listen: "test",
+      script: {
+        type: "text/javascript",
+        exec: testScript.split("\n"),
+      },
+    },
+  ];
+
+  if (preRequestScript) {
+    event.unshift({
+      listen: "prerequest",
+      script: {
+        type: "text/javascript",
+        exec: preRequestScript.split("\n"),
+      },
+    });
+  }
+
   return {
     item: {
       name: operation.summary || `${method.toUpperCase()} ${path}`,
       request,
-      event: [
-        {
-          listen: "test",
-          script: {
-            type: "text/javascript",
-            exec: testScript.split("\n"),
-          },
-        },
-      ],
+      event,
     },
     pathVariables,
   };
@@ -98,6 +110,8 @@ function buildRequestItem(api, path, method, statusCode) {
  *   else 202, else 204, else first documented 2xx) is auto-detected instead.
  * @param {RegExp} [options.pathFilter] - only include paths matching this regex
  * @param {string} [options.collectionName]
+ * @param {string} [options.preRequestScript] - if given, attached as a Pre-request Script
+ *   on every generated request (e.g. built via dataGenerators.buildPreRequestScript)
  */
 function buildCollection(api, options = {}) {
   const collectionName = options.collectionName || api.info?.title || "Generated Collection";
@@ -115,7 +129,7 @@ function buildCollection(api, options = {}) {
         console.warn(`Skipped ${op.method.toUpperCase()} ${op.path}: no 2xx response documented.`);
         continue;
       }
-      const { item, pathVariables } = buildRequestItem(api, op.path, op.method, statusCode);
+      const { item, pathVariables } = buildRequestItem(api, op.path, op.method, statusCode, options.preRequestScript);
       items.push(item);
       pathVariables.forEach((v) => pathVariableNames.add(v));
     } catch (err) {

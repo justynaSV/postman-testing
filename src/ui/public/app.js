@@ -19,6 +19,13 @@ async function postJson(url, body) {
   return data;
 }
 
+async function getJson(url) {
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
 function renderOperations(list) {
   const container = $("operation-list");
   container.innerHTML = "";
@@ -124,3 +131,78 @@ $("collection-btn").addEventListener("click", async () => {
     setStatus($("collection-status"), err.message, "error");
   }
 });
+
+let availableGenerators = [];
+
+function renderGenerators() {
+  const container = $("generator-list");
+  container.innerHTML = "";
+  for (const g of availableGenerators) {
+    const row = document.createElement("div");
+    row.className = "generator-row";
+    row.innerHTML = `<label><input type="checkbox" class="generator-checkbox" value="${g.id}" /> ${g.label}</label>`;
+
+    if (g.params.length > 0) {
+      const paramsBox = document.createElement("div");
+      paramsBox.className = "generator-params";
+      for (const p of g.params) {
+        const field = document.createElement("label");
+        field.innerHTML = `${p.label}<input type="text" data-generator="${g.id}" data-param="${p.name}" placeholder="${p.default || ""}" />`;
+        paramsBox.appendChild(field);
+      }
+      row.appendChild(paramsBox);
+    }
+
+    container.appendChild(row);
+  }
+}
+
+async function loadGenerators() {
+  try {
+    const { generators } = await getJson("/api/generators");
+    availableGenerators = generators;
+    renderGenerators();
+  } catch (err) {
+    setStatus($("generator-status"), err.message, "error");
+  }
+}
+
+$("generator-build-btn").addEventListener("click", async () => {
+  try {
+    const checked = Array.from(document.querySelectorAll(".generator-checkbox:checked")).map((cb) => cb.value);
+    if (checked.length === 0) {
+      setStatus($("generator-status"), "Pick at least one generator.", "error");
+      return;
+    }
+    const selections = checked.map((id) => {
+      const inputs = document.querySelectorAll(`input[data-generator="${id}"]`);
+      const params = {};
+      inputs.forEach((input) => {
+        if (input.value) params[input.dataset.param] = input.value;
+      });
+      return { id, params };
+    });
+
+    setStatus($("generator-status"), "Generating...", "");
+    const { script } = await postJson("/api/generators/build", { selections });
+    $("generator-output").value = script;
+    setStatus($("generator-status"), "Done.", "ok");
+  } catch (err) {
+    setStatus($("generator-status"), err.message, "error");
+  }
+});
+
+$("generator-copy-btn").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("generator-output").value);
+  setStatus($("generator-status"), "Copied to clipboard.", "ok");
+});
+
+$("generator-download-btn").addEventListener("click", () => {
+  const blob = new Blob([$("generator-output").value], { type: "text/javascript" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "pre-request.js";
+  a.click();
+});
+
+loadGenerators();

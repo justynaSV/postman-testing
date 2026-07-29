@@ -7,6 +7,7 @@ const { walkSchema } = require("./schema/walkSchema");
 const { generateTestScript } = require("./generate/testScript");
 const { buildCollection } = require("./generate/collection");
 const { exportScripts } = require("./generate/exportScripts");
+const { listGenerators, buildPreRequestScript } = require("./generate/dataGenerators");
 
 /** Commander "collect" callback: accumulates repeatable --header "Key: Value" into an object. */
 function collectHeader(value, previous) {
@@ -87,12 +88,17 @@ program
   .option("--filter <regex>", "Only include paths matching this regex")
   .option("--name <name>", "Collection name (defaults to the spec's info.title)")
   .option("--header <keyValue>", "HTTP header for authenticated spec URLs, e.g. \"Authorization: Bearer xyz\" (repeatable)", collectHeader, {})
+  .option("--generators <ids>", "Comma-separated data-generator ids to attach as a Pre-request Script on every generated request, e.g. \"vin,customer\" (run the 'generators' command to see available ids)")
   .action(async (opts) => {
     const api = await loadSpec(opts.spec, opts.header);
+    const preRequestScript = opts.generators
+      ? buildPreRequestScript(opts.generators.split(",").map((id) => ({ id: id.trim() })))
+      : undefined;
     const collection = buildCollection(api, {
       statusCode: opts.status ? Number(opts.status) : undefined,
       pathFilter: opts.filter ? new RegExp(opts.filter) : undefined,
       collectionName: opts.name,
+      preRequestScript,
     });
 
     fs.writeFileSync(path.resolve(opts.out), JSON.stringify(collection, null, 2), "utf8");
@@ -121,6 +127,40 @@ program
       for (const s of skipped) {
         console.warn(`  ${s.method.toUpperCase()} ${s.path}: ${s.reason}`);
       }
+    }
+  });
+
+program
+  .command("generators")
+  .description("List or combine reusable Pre-request data-generator scripts (VIN, customer, random test name, ...) - not tied to any spec")
+  .option("--pick <ids>", 'Comma-separated generator ids to combine into one script, e.g. "vin,customer"')
+  .option("--var-name <name>", "Collection variable name (only used by the randomTestName generator)")
+  .option("--name-prefix <text>", "Name prefix, e.g. \"Test Tire Category\" (only used by the randomTestName generator)")
+  .option("--log-label <text>", "Label used in the console.log message, e.g. \"Category\" (only used by the randomTestName generator)")
+  .option("--out <file>", "Write the combined script to a file instead of stdout")
+  .action((opts) => {
+    if (!opts.pick) {
+      console.log("Available generators:\n");
+      for (const g of listGenerators()) {
+        console.log(`  ${g.id.padEnd(16)} ${g.label}`);
+      }
+      console.log('\nCombine one or more, e.g.:\n  postman-test-gen generators --pick "vin,customer"');
+      console.log('  postman-test-gen generators --pick randomTestName --var-name testTireCategory --name-prefix "Test Tire Category" --log-label Category');
+      return;
+    }
+
+    const ids = opts.pick.split(",").map((s) => s.trim()).filter(Boolean);
+    const selections = ids.map((id) => ({
+      id,
+      params: { variableName: opts.varName, namePrefix: opts.namePrefix, logLabel: opts.logLabel },
+    }));
+    const script = buildPreRequestScript(selections);
+
+    if (opts.out) {
+      fs.writeFileSync(path.resolve(opts.out), script, "utf8");
+      console.log(`Pre-request script written to ${opts.out}`);
+    } else {
+      console.log(script);
     }
   });
 
