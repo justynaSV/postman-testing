@@ -6,6 +6,7 @@ const { listOperations, findOperation, pickSuccessStatus, getResponseSchema } = 
 const { walkSchema } = require("./schema/walkSchema");
 const { generateTestScript } = require("./generate/testScript");
 const { buildCollection } = require("./generate/collection");
+const { exportScripts } = require("./generate/exportScripts");
 
 /** Commander "collect" callback: accumulates repeatable --header "Key: Value" into an object. */
 function collectHeader(value, previous) {
@@ -96,6 +97,50 @@ program
 
     fs.writeFileSync(path.resolve(opts.out), JSON.stringify(collection, null, 2), "utf8");
     console.log(`Collection with ${collection.item.length} request(s) written to ${opts.out}`);
+  });
+
+program
+  .command("export")
+  .description("Generate one test-script .js file per endpoint, organized into folders by API version/resource (mirrors an existing hand-built collection's layout)")
+  .requiredOption("--spec <pathOrUrl>", "Path or URL to the OpenAPI/Swagger document")
+  .requiredOption("--out <dir>", "Root output directory for the generated script files")
+  .option("--status <code>", "Force this status code for every endpoint (default: auto-detect each endpoint's success status)")
+  .option("--filter <regex>", "Only include paths matching this regex")
+  .option("--header <keyValue>", "HTTP header for authenticated spec URLs, e.g. \"Authorization: Bearer xyz\" (repeatable)", collectHeader, {})
+  .action(async (opts) => {
+    const api = await loadSpec(opts.spec, opts.header);
+    const { written, skipped } = exportScripts(api, {
+      outDir: path.resolve(opts.out),
+      statusCode: opts.status ? Number(opts.status) : undefined,
+      pathFilter: opts.filter ? new RegExp(opts.filter) : undefined,
+    });
+
+    console.log(`Wrote ${written.length} script file(s) to ${opts.out}`);
+    if (skipped.length > 0) {
+      console.warn(`Skipped ${skipped.length} endpoint(s):`);
+      for (const s of skipped) {
+        console.warn(`  ${s.method.toUpperCase()} ${s.path}: ${s.reason}`);
+      }
+    }
+  });
+
+program
+  .command("interactive")
+  .description("Guided, menu-driven mode: pick a spec and endpoint from a list instead of typing --path/--method by hand")
+  .action(async () => {
+    const { runInteractive } = require("./interactive");
+    await runInteractive();
+  });
+
+program
+  .command("ui")
+  .description("Start a local web UI for browsing a spec and generating scripts/collections without the terminal")
+  .option("--port <number>", "Port to listen on", "4747")
+  .action((opts) => {
+    const { startServer } = require("./ui/server");
+    const port = Number(opts.port);
+    startServer(port);
+    console.log(`postman-test-gen UI running at http://localhost:${port}`);
   });
 
 module.exports = program;

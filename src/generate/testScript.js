@@ -100,6 +100,13 @@ class ScriptBuilder {
       this.usedRegex.set(regex.varName, regex.pattern);
     }
   }
+
+  /** Drops any trailing blank lines already pushed, so a closing `}` doesn't end up with an empty line right before it. */
+  trimTrailingBlankLines() {
+    while (this.lines.length > 0 && this.lines[this.lines.length - 1] === "") {
+      this.lines.pop();
+    }
+  }
 }
 
 function renderField(builder, field, parentExpr, indent, contextLabel) {
@@ -134,6 +141,7 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
         for (const child of field.items.children) {
           renderField(builder, child, itemRef, innerIndent + 1, `${field.name}[0]`);
         }
+        builder.trimTrailingBlankLines();
         builder.push(`}`, innerIndent);
         builder.push("", innerIndent);
       } else {
@@ -158,6 +166,7 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
     builder.push(`if (${parentExpr}.hasOwnProperty('${field.name}')) {`, indent);
     emitOwnTest(indent + 1);
     emitChildren(indent + 1);
+    builder.trimTrailingBlankLines();
     builder.push(`}`, indent);
     builder.push("", indent);
   }

@@ -6,6 +6,8 @@ Guideline and standards of creating test scripts in Postman (see [POSTMAN_TEST_S
 
 Writing `pm.test` blocks by hand for every field/format/required-check is repetitive and easy to get subtly wrong (missed `haveOwnProperty`, wrong regex, multiple assertions per test, etc.). This tool reads the request/response schemas already documented in your Swagger/OpenAPI spec and generates scripts that follow every rule in the standards doc automatically.
 
+> **New to this tool?** See [INSTRUCTION.md](INSTRUCTION.md) for a step-by-step walkthrough (Web UI, guided interactive mode, or direct commands) — no prior experience with this project needed.
+
 ## Install
 
 ```bash
@@ -74,6 +76,47 @@ For a large API, generate scoped collections per resource/version instead of one
 node bin/postman-test-gen.js collection --spec "https://your-domain.com/openapi.json" --out warehouse-v1.json --filter "^/v1/warehouse"
 ```
 
+### `export` — write one script file per endpoint, organized into folders
+
+Instead of copy-pasting scripts out of the terminal one endpoint at a time:
+
+```bash
+node bin/postman-test-gen.js export --spec examples/sample-openapi.yaml --out ./postman-scripts
+```
+
+Writes a `.js` file per endpoint, grouped into folders that mirror the layout of a typical hand-built collection — a folder per API version (if the spec uses versioned paths like `/v1/...`), then a folder per resource (title-cased, e.g. `article-update-job` -> `Article Update Job`), e.g.:
+
+```
+postman-scripts/
+  v1/
+    Article Category/
+      get-articleCategoryId.js
+      post-article-category.js
+    Article Category List/
+      get-article-category-list.js
+  v2/
+    Direct Sale/
+      post-directSaleId-basket.js
+```
+
+Supports `--status`, `--filter`, and `--header` the same as `collection`.
+
+### `interactive` — guided menu instead of typing flags
+
+```bash
+node bin/postman-test-gen.js interactive
+```
+
+(or just `node bin/postman-test-gen.js` with no arguments at all). Prompts you for the spec, then lets you search/pick an endpoint from a list (handy when a spec has hundreds of operations), and walks you through generating a single script, exporting every endpoint's script, or building a full collection — no need to remember exact `--path`/`--method` spelling.
+
+### `ui` — local web page instead of the terminal
+
+```bash
+node bin/postman-test-gen.js ui
+```
+
+Starts a local server (default `http://localhost:4747`) with a simple page to load a spec, search/select an endpoint, preview/copy/download its generated script, and trigger bulk export or full-collection generation — useful for teammates who'd rather not use the CLI at all. Use `--port <number>` to change the port.
+
 ## What gets generated
 
 From each schema property, based on `type`, `format`, `enum`, and `required`:
@@ -81,7 +124,7 @@ From each schema property, based on `type`, `format`, `enum`, and `required`:
 | Schema info | Generated check |
 |---|---|
 | `required: true` | Direct `haveOwnProperty` assertion |
-| `required: false` | Same assertion, wrapped in an `if (Object.prototype.hasOwnProperty.call(...))` guard |
+| `required: false` | Same assertion, wrapped in an `if (response.hasOwnProperty(...))` guard |
 | `format: uuid / date-time / date / email / uri` | `haveOwnProperty(...).to.match(<regex>)`, regex declared once and reused |
 | `enum: [...]` | `haveOwnProperty(...).to.be.oneOf([...])` |
 | `type: object` | Existence + `an('object')` check, then recurses into nested properties |
@@ -95,10 +138,12 @@ Status-code test is always emitted first, `pm.response.json()` is only parsed af
 
 ```
 bin/postman-test-gen.js     CLI entry point
-src/cli.js                  Commander command definitions
+src/cli.js                  Commander command definitions (list/script/collection/export/interactive/ui)
+src/interactive.js          Guided, prompt-based workflow (used by `interactive` and no-args invocation)
 src/spec/                   OpenAPI loading + operation/schema lookup (swagger-parser)
 src/schema/                 Schema walking, regex library, example value generation
-src/generate/               Test script text generation + full collection assembly
+src/generate/               Test script text generation, full collection assembly, per-endpoint export + folder naming
+src/ui/                     Local web UI (Express server + static HTML/JS/CSS)
 examples/                   Sample OpenAPI spec for trying the tool out
 ```
 

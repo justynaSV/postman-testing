@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Postman test generator</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Postman test generator</h1>
+    <p class="subtitle">Generate Postman test scripts from an OpenAPI/Swagger spec.</p>
+  </header>
+
+  <section id="load-section" class="card">
+    <h2>1. Load a spec</h2>
+    <label>Path or URL
+      <input id="spec-input" type="text" placeholder="./examples/sample-openapi.yaml or https://.../openapi.json" />
+    </label>
+    <div class="row">
+      <label>Header name (optional)
+        <input id="header-key-input" type="text" placeholder="Authorization" />
+      </label>
+      <label>Header value
+        <input id="header-value-input" type="text" placeholder="Bearer xyz" />
+      </label>
+    </div>
+    <button id="load-btn">Load spec</button>
+    <p id="load-status" class="status"></p>
+  </section>
+
+  <section id="browse-section" class="card hidden">
+    <h2>2. Pick an endpoint</h2>
+    <input id="search-input" type="text" placeholder="Search endpoints (path, method, summary)..." />
+    <div id="operation-list" class="operation-list"></div>
+  </section>
+
+  <section id="script-section" class="card hidden">
+    <h2>3. Generated script</h2>
+    <div class="row">
+      <label>Endpoint
+        <input id="selected-endpoint" type="text" disabled />
+      </label>
+      <label>Status code
+        <input id="status-input" type="text" />
+      </label>
+      <button id="regen-btn">Regenerate</button>
+    </div>
+    <textarea id="script-output" rows="20" readonly></textarea>
+    <div class="row">
+      <button id="copy-btn">Copy to clipboard</button>
+      <button id="download-btn">Download .js file</button>
+    </div>
+    <p id="script-status" class="status"></p>
+  </section>
+
+  <section class="card">
+    <h2>Bulk actions</h2>
+    <div class="bulk-grid">
+      <div>
+        <h3>Export a script file per endpoint</h3>
+        <label>Output folder
+          <input id="export-outdir" type="text" value="./postman-scripts" />
+        </label>
+        <label>Path filter (regex, optional)
+          <input id="export-filter" type="text" />
+        </label>
+        <button id="export-btn">Export all</button>
+        <p id="export-status" class="status"></p>
+      </div>
+      <div>
+        <h3>Generate full collection</h3>
+        <label>Output file
+          <input id="collection-outfile" type="text" value="./collection.json" />
+        </label>
+        <label>Collection name (optional)
+          <input id="collection-name" type="text" />
+        </label>
+        <label>Path filter (regex, optional)
+          <input id="collection-filter" type="text" />
+        </label>
+        <button id="collection-btn">Generate collection</button>
+        <p id="collection-status" class="status"></p>
+      </div>
+    </div>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>
