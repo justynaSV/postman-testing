@@ -15,7 +15,7 @@ const VIN_SCRIPT = `function generateVIN() {
     }
     return vin;
 }
-    
+
 const vin = generateVIN();
 pm.collectionVariables.set('vin', vin);`;
 
@@ -90,20 +90,6 @@ console.log(\`Generated ${logLabel}: \${${variableName}}\`);`;
 }
 
 const GENERATORS = {
-  vin: {
-    id: "vin",
-    label: "VIN - random 17-character vehicle identification number",
-    variables: ["vin"],
-    params: [],
-    build: () => VIN_SCRIPT,
-  },
-  customer: {
-    id: "customer",
-    label: "Customer - random first/last name, email, phone number",
-    variables: ["firstName", "lastName", "customerEmail", "number"],
-    params: [],
-    build: () => CUSTOMER_SCRIPT,
-  },
   randomTestName: {
     id: "randomTestName",
     label: 'Random test name with a 3-digit suffix (e.g. "Test Tire Category 042")',
@@ -114,6 +100,20 @@ const GENERATORS = {
       //{ name: "logLabel", label: "Label used in the console.log message", default: "value" },
     ],
     build: (params) => buildRandomTestNameScript(params),
+  },
+  customer: {
+    id: "customer",
+    label: "Customer - random first/last name, email, phone number",
+    variables: ["firstName", "lastName", "customerEmail", "number"],
+    params: [],
+    build: () => CUSTOMER_SCRIPT,
+  },
+  vin: {
+    id: "vin",
+    label: "VIN - random 17-character vehicle identification number",
+    variables: ["vin"],
+    params: [],
+    build: () => VIN_SCRIPT,
   },
 };
 
