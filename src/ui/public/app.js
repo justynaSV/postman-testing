@@ -66,11 +66,21 @@ async function generateScript() {
 $("load-btn").addEventListener("click", async () => {
   try {
     setStatus($("load-status"), "Loading...", "");
-    const { title, operations: ops } = await postJson("/api/load", {
-      spec: $("spec-input").value,
-      headerKey: $("header-key-input").value,
-      headerValue: $("header-value-input").value,
-    });
+    const useFile = $("load-mode-file").checked;
+    let result;
+    if (useFile) {
+      const file = $("spec-file-input").files[0];
+      if (!file) throw new Error("Choose a JSON file first.");
+      const specContent = await file.text();
+      result = await postJson("/api/load", { specContent, specName: file.name });
+    } else {
+      result = await postJson("/api/load", {
+        spec: $("spec-input").value,
+        headerKey: $("header-key-input").value,
+        headerValue: $("header-value-input").value,
+      });
+    }
+    const { title, operations: ops } = result;
     operations = ops;
     renderOperations(operations);
     $("browse-section").classList.remove("hidden");
@@ -78,6 +88,14 @@ $("load-btn").addEventListener("click", async () => {
   } catch (err) {
     setStatus($("load-status"), err.message, "error");
   }
+});
+
+document.querySelectorAll('input[name="load-mode"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    const useFile = $("load-mode-file").checked;
+    $("load-url-fields").classList.toggle("hidden", useFile);
+    $("load-file-fields").classList.toggle("hidden", !useFile);
+  });
 });
 
 $("search-input").addEventListener("input", (e) => {

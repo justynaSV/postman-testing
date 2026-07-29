@@ -26,7 +26,11 @@ A step-by-step guide for generating Postman test scripts from an OpenAPI/Swagger
    ```
 2. You'll see: `postman-test-gen UI running at http://localhost:4747`
 3. Open that address in your browser: **http://localhost:4747**
-4. **Load a spec**: paste the path or URL into the "Path or URL" box. If it needs a header, fill in the header name/value fields too. Click **Load spec**.
+4. **Load a spec**: choose **URL / file path** or **Local JSON file** at the top of the section.
+   - **URL / file path**: paste the path or URL into the "Path or URL" box. If it needs a header, fill in the header name/value fields too.
+   - **Local JSON file**: click the file picker and choose the OpenAPI/Swagger `.json` file from your computer (no path typing needed).
+
+   Then click **Load spec**.
 5. **Pick an endpoint**: use the search box to find it (e.g. type `article-category` or `GET`), then click on it in the list.
 6. The test script appears automatically in the box below. You can:
    - Adjust the **Status code** field and click **Regenerate** if you want to test a different response (e.g. 404 instead of 200).

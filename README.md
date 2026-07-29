@@ -147,7 +147,7 @@ node bin/postman-test-gen.js interactive
 node bin/postman-test-gen.js ui
 ```
 
-Starts a local server (default `http://localhost:4747`) with a simple page to load a spec, search/select an endpoint, preview/copy/download its generated script, and build/copy/download reusable data-generator Pre-request scripts — useful for teammates who'd rather not use the CLI at all. Use `--port <number>` to change the port.
+Starts a local server (default `http://localhost:4747`) with a simple page to load a spec (by URL/file path, or by picking a local `.json` file straight from your computer), search/select an endpoint, preview/copy/download its generated script, and build/copy/download reusable data-generator Pre-request scripts — useful for teammates who'd rather not use the CLI at all. Use `--port <number>` to change the port.
 
 > The Web UI's bulk export/collection-generation section is disabled in this version — use the CLI's `export`/`collection` commands (or `interactive` mode) for those instead.
 

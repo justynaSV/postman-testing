@@ -50,4 +50,34 @@ async function loadSpec(specPathOrUrl, headers) {
   }
 }
 
-module.exports = { loadSpec };
+/**
+ * Loads and fully dereferences an OpenAPI/Swagger document from raw JSON
+ * text already in memory (e.g. a file the user picked in the browser and
+ * whose contents were read client-side, since a server process can't reach
+ * a path on the browser's machine).
+ *
+ * @param {string} jsonText - raw JSON spec content
+ * @param {string} [sourceName] - original file name, used only in error messages
+ */
+async function loadSpecFromContent(jsonText, sourceName) {
+  const label = sourceName || "uploaded file";
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch (err) {
+    throw new Error(`Failed to parse "${label}" as JSON: ${err.message}`);
+  }
+  if (parsed && parsed.info && parsed.info._postman_id) {
+    throw new Error(
+      `"${label}" is a Postman collection export (has "info._postman_id"), not an OpenAPI/Swagger schema. Load the actual Swagger/OpenAPI JSON document instead.`
+    );
+  }
+  try {
+    const api = await SwaggerParser.dereference(parsed);
+    return api;
+  } catch (err) {
+    throw new Error(`Failed to load/parse OpenAPI spec from "${label}": ${err.message}`);
+  }
+}
+
+module.exports = { loadSpec, loadSpecFromContent };

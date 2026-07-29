@@ -13,15 +13,26 @@
 
   <section id="load-section" class="card">
     <h2>1. Load a spec</h2>
-    <label>Path or URL
-      <input id="spec-input" type="text" placeholder="./examples/sample-openapi.yaml or https://.../openapi.json" />
-    </label>
     <div class="row">
-      <label>Header name (optional)
-        <input id="header-key-input" type="text" placeholder="e.g.: x-branch" />
+      <label class="radio-label"><input type="radio" name="load-mode" id="load-mode-url" value="url" checked /> URL / file path</label>
+      <label class="radio-label"><input type="radio" name="load-mode" id="load-mode-file" value="file" /> Local JSON file</label>
+    </div>
+    <div id="load-url-fields">
+      <label>Path or URL
+        <input id="spec-input" type="text" placeholder="./examples/sample-openapi.yaml or https://.../openapi.json" />
       </label>
-      <label>Header value
-        <input id="header-value-input" type="text" placeholder="e.g.: branchId" />
+      <div class="row">
+        <label>Header name (optional)
+          <input id="header-key-input" type="text" placeholder="e.g.: x-branch" />
+        </label>
+        <label>Header value
+          <input id="header-value-input" type="text" placeholder="e.g.: branchId" />
+        </label>
+      </div>
+    </div>
+    <div id="load-file-fields" class="hidden">
+      <label>JSON spec file
+        <input id="spec-file-input" type="file" accept=".json,application/json" />
       </label>
     </div>
     <button id="load-btn">Load spec</button>

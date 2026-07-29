@@ -192,3 +192,16 @@ button:hover {
   font-size: 0.85rem;
   margin: 0.75rem 0;
 }
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+}
+
+.radio-label input[type="radio"] {
+  width: auto;
+  display: inline-block;
+  margin: 0;
+}

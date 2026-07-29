@@ -1,6 +1,6 @@
 const path = require("path");
 const express = require("express");
-const { loadSpec } = require("../spec/loadSpec");
+const { loadSpec, loadSpecFromContent } = require("../spec/loadSpec");
 const { listOperations, findOperation, pickSuccessStatus, getResponseSchema } = require("../spec/resolveEndpoint");
 const { walkSchema } = require("../schema/walkSchema");
 const { generateTestScript } = require("../generate/testScript");
@@ -16,17 +16,21 @@ const { listGenerators, buildPreRequestScript } = require("../generate/dataGener
  */
 function startServer(port) {
   const app = express();
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "20mb" }));
   app.use(express.static(path.join(__dirname, "public")));
 
   let currentApi = null;
 
   app.post("/api/load", async (req, res) => {
     try {
-      const { spec, headerKey, headerValue } = req.body;
-      if (!spec) return res.status(400).json({ error: "Missing spec path or URL." });
-      const headers = headerKey ? { [headerKey]: headerValue || "" } : {};
-      currentApi = await loadSpec(spec, headers);
+      const { spec, specContent, specName, headerKey, headerValue } = req.body;
+      if (specContent) {
+        currentApi = await loadSpecFromContent(specContent, specName);
+      } else {
+        if (!spec) return res.status(400).json({ error: "Missing spec path or URL." });
+        const headers = headerKey ? { [headerKey]: headerValue || "" } : {};
+        currentApi = await loadSpec(spec, headers);
+      }
       const operations = listOperations(currentApi).map((op) => ({
         ...op,
         autoStatus: (() => {
@@ -34,7 +38,7 @@ function startServer(port) {
           return pickSuccessStatus(operation);
         })(),
       }));
-      res.json({ title: currentApi.info?.title || spec, operations });
+      res.json({ title: currentApi.info?.title || specName || spec, operations });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
