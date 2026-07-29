@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: Sample User API
+  version: "1.0.0"
+paths:
+  /users/{userId}:
+    get:
+      summary: Get a user by id
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A user object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required: [message]
+  /users:
+    get:
+      summary: List users
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, inactive]
+      responses:
+        "200":
+          description: A page of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+                required: [items, total]
+    post:
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+              required: [name, email]
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - createdAt
+        - status
+        - general
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, inactive]
+        nickname:
+          type: string
+        general:
+          type: object
+          required:
+            - directSaleVariantId
+          properties:
+            directSaleVariantId:
+              type: string
+              format: uuid
+            createdAt:
+              type: string
+              format: date-time
+        tags:
+          type: array
+          items:
+            type: string

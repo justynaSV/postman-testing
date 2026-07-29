@@ -1,0 +1,24 @@
+{
+  "name": "postman-test-gen",
+  "version": "0.1.0",
+  "description": "Generates Postman test scripts (and full collections) from OpenAPI/Swagger schemas, following the team's Postman test standards.",
+  "bin": {
+    "postman-test-gen": "./bin/postman-test-gen.js"
+  },
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node bin/postman-test-gen.js",
+    "example:list": "node bin/postman-test-gen.js list --spec examples/sample-openapi.yaml",
+    "example:script": "node bin/postman-test-gen.js script --spec examples/sample-openapi.yaml --path /users/{userId} --method get",
+    "example:collection": "node bin/postman-test-gen.js collection --spec examples/sample-openapi.yaml --out examples/generated-collection.json"
+  },
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^10.1.0",
+    "commander": "^12.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
