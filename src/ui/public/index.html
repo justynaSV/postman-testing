@@ -12,7 +12,7 @@
   </header>
 
   <section id="load-section" class="card">
-    <h2>1. Load a spec</h2>
+    <h2>1. Load specification (OpenAPI/Swagger)</h2>
     <div class="row">
       <label class="radio-label"><input type="radio" name="load-mode" id="load-mode-url" value="url" checked /> URL / file path</label>
       <label class="radio-label"><input type="radio" name="load-mode" id="load-mode-file" value="file" /> Local JSON file</label>
@@ -35,13 +35,18 @@
         <input id="spec-file-input" type="file" accept=".json,application/json" />
       </label>
     </div>
-    <button id="load-btn">Load spec</button>
+    <button id="load-btn">Load</button>
     <p id="load-status" class="status"></p>
   </section>
 
   <section id="browse-section" class="card hidden">
     <h2>2. Pick an endpoint</h2>
-    <input id="search-input" type="text" placeholder="Search endpoints (path, method, summary)..." />
+    <div class="row">
+      <select id="method-filter">
+        <option value="">All methods</option>
+      </select>
+      <input id="search-input" type="text" placeholder="Search endpoints (path, method, summary)..." />
+    </div>
     <div id="operation-list" class="operation-list"></div>
   </section>
 

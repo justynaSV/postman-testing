@@ -121,7 +121,7 @@ class ScriptBuilder {
 
 /**
  * Emits one pm.test() block, optionally nesting its body inside a sequence of
- * wrapper statements - `array.forEach((item) => { ... })` loops and/or
+ * wrapper statements - `array.forEach(item => { ... })` loops and/or
  * `if (guard) { ... }` existence guards (for optional fields checked
  * per-item). `wraps` is an ordered list of `{ kind: 'forEach', arrExpr,
  * itemVar }` or `{ kind: 'guard', condition }` entries, applied outermost
@@ -134,7 +134,7 @@ function emitTest(builder, indent, title, wraps, bodyFn) {
   let cur = indent + 1;
   for (const wrap of wraps) {
     if (wrap.kind === "forEach") {
-      builder.push(`${wrap.arrExpr}.forEach((${wrap.itemVar}) => {`, cur);
+      builder.push(`${wrap.arrExpr}.forEach(${wrap.itemVar} => {`, cur);
     } else {
       builder.push(`if (${wrap.condition}) {`, cur);
     }

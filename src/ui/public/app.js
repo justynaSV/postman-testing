@@ -32,10 +32,34 @@ function renderOperations(list) {
   for (const op of list) {
     const row = document.createElement("div");
     row.className = "operation-row";
-    row.innerHTML = `<span class="method-badge">${op.method.toUpperCase()}</span>${op.path}${op.summary ? "  # " + op.summary : ""}`;
+    row.innerHTML = `<span class="method-badge method-${op.method.toLowerCase()}">${op.method.toUpperCase()}</span>${op.path}${op.summary ? "  # " + op.summary : ""}`;
     row.addEventListener("click", () => selectOperation(op));
     container.appendChild(row);
   }
+}
+
+function populateMethodFilter(list) {
+  const select = $("method-filter");
+  select.innerHTML = '<option value="">All methods</option>';
+  const methods = [...new Set(list.map((op) => op.method.toLowerCase()))].sort();
+  for (const method of methods) {
+    const option = document.createElement("option");
+    option.value = method;
+    option.textContent = method.toUpperCase();
+    select.appendChild(option);
+  }
+}
+
+function applyFilters() {
+  const term = $("search-input").value.toLowerCase();
+  const method = $("method-filter").value;
+  renderOperations(
+    operations.filter(
+      (op) =>
+        (!method || op.method.toLowerCase() === method) &&
+        (op.path.toLowerCase().includes(term) || op.method.toLowerCase().includes(term) || (op.summary || "").toLowerCase().includes(term))
+    )
+  );
 }
 
 async function selectOperation(op) {
@@ -63,7 +87,7 @@ async function generateScript() {
   }
 }
 
-$("load-btn").addEventListener("click", async () => {
+async function loadSpec() {
   try {
     setStatus($("load-status"), "Loading...", "");
     const useFile = $("load-mode-file").checked;
@@ -82,13 +106,25 @@ $("load-btn").addEventListener("click", async () => {
     }
     const { title, operations: ops } = result;
     operations = ops;
+    populateMethodFilter(operations);
     renderOperations(operations);
     $("browse-section").classList.remove("hidden");
     setStatus($("load-status"), `Loaded "${title}" (${operations.length} operations).`, "ok");
   } catch (err) {
     setStatus($("load-status"), err.message, "error");
   }
-});
+}
+
+$("load-btn").addEventListener("click", loadSpec);
+
+for (const id of ["spec-input", "header-key-input", "header-value-input"]) {
+  $(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loadSpec();
+    }
+  });
+}
 
 document.querySelectorAll('input[name="load-mode"]').forEach((radio) => {
   radio.addEventListener("change", () => {
@@ -98,14 +134,8 @@ document.querySelectorAll('input[name="load-mode"]').forEach((radio) => {
   });
 });
 
-$("search-input").addEventListener("input", (e) => {
-  const term = e.target.value.toLowerCase();
-  renderOperations(
-    operations.filter(
-      (op) => op.path.toLowerCase().includes(term) || op.method.toLowerCase().includes(term) || (op.summary || "").toLowerCase().includes(term)
-    )
-  );
-});
+$("search-input").addEventListener("input", applyFilters);
+$("method-filter").addEventListener("change", applyFilters);
 
 $("regen-btn").addEventListener("click", generateScript);
 
