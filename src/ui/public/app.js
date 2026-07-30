@@ -3,6 +3,30 @@ let selectedOp = null;
 
 const $ = (id) => document.getElementById(id);
 
+const THEME_STORAGE_KEY = "postman-test-gen-theme";
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
+/** Applies `theme` to the document and updates the toggle button's icon/label to match. */
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const toggleBtn = $("theme-toggle");
+  if (!toggleBtn) return;
+  toggleBtn.textContent = theme === "dark" ? "☀️" : "🌙";
+  toggleBtn.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  toggleBtn.title = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+}
+
+applyTheme(getCurrentTheme());
+
+$("theme-toggle").addEventListener("click", () => {
+  const nextTheme = getCurrentTheme() === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  applyTheme(nextTheme);
+});
+
 function setStatus(el, message, kind) {
   el.textContent = message;
   el.className = "status" + (kind ? " " + kind : "");
@@ -132,8 +156,6 @@ async function loadSpec() {
     } else {
       result = await postJson("/api/load", {
         spec: $("spec-input").value,
-        headerKey: $("header-key-input").value,
-        headerValue: $("header-value-input").value,
       });
     }
     const { title, operations: ops } = result;
@@ -149,14 +171,12 @@ async function loadSpec() {
 
 $("load-btn").addEventListener("click", loadSpec);
 
-for (const id of ["spec-input", "header-key-input", "header-value-input"]) {
-  $(id).addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      loadSpec();
-    }
-  });
-}
+$("spec-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    loadSpec();
+  }
+});
 
 document.querySelectorAll('input[name="load-mode"]').forEach((radio) => {
   radio.addEventListener("change", () => {

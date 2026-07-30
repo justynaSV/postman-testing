@@ -4,11 +4,23 @@
   <meta charset="utf-8" />
   <title>Postman test generator</title>
   <link rel="stylesheet" href="/style.css" />
+  <script>
+    (function () {
+      var stored = localStorage.getItem("postman-test-gen-theme");
+      var theme = stored === "light" || stored === "dark"
+        ? stored
+        : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
 </head>
 <body>
-  <header>
-    <h1>Postman test generator</h1>
-    <p class="subtitle">Generate Postman test scripts from an OpenAPI/Swagger spec.</p>
+  <header class="app-header">
+    <div>
+      <h1>Postman test generator</h1>
+      <p class="subtitle">Generate Postman test scripts from an OpenAPI/Swagger spec.</p>
+    </div>
+    <button id="theme-toggle" class="theme-toggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
   </header>
 
   <section id="load-section" class="card">
@@ -21,14 +33,6 @@
       <label>Path or URL
         <input id="spec-input" type="text" placeholder="./examples/sample-openapi.yaml or https://.../openapi.json" />
       </label>
-      <div class="row">
-        <label>Header name (optional)
-          <input id="header-key-input" type="text" placeholder="e.g.: x-branch" />
-        </label>
-        <label>Header value
-          <input id="header-value-input" type="text" placeholder="e.g.: branchId" />
-        </label>
-      </div>
     </div>
     <div id="load-file-fields" class="hidden">
       <label>JSON spec file
