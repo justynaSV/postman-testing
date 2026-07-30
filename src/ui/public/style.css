@@ -102,6 +102,10 @@ button {
   font-size: 0.95rem;
 }
 
+.row button {
+  margin-bottom: 0.75rem;
+}
+
 button:hover {
   opacity: 0.9;
 }
@@ -173,11 +177,43 @@ button:hover {
   color: #d33;
 }
 
-#script-output {
+.code-block {
+  display: block;
   width: 100%;
+  max-height: 480px;
+  overflow: auto;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 4px;
+  background: #1e1e1e;
+  color: #d4d4d4;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.85rem;
-  margin: 0.75rem 0;
+  white-space: pre;
+}
+
+.code-block code {
+  font-family: inherit;
+}
+
+.tok-comment {
+  color: #6a9955;
+}
+
+.tok-string {
+  color: #ce9178;
+}
+
+.tok-keyword {
+  color: #569cd6;
+}
+
+.tok-number {
+  color: #b5cea8;
+}
+
+.tok-global {
+  color: #4ec9b0;
 }
 
 .bulk-grid {
@@ -221,13 +257,6 @@ button:hover {
   flex: 1;
   min-width: 160px;
   font-size: 0.8rem;
-}
-
-#generator-output {
-  width: 100%;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.85rem;
-  margin: 0.75rem 0;
 }
 
 .radio-label {

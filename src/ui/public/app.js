@@ -8,6 +8,38 @@ function setStatus(el, message, kind) {
   el.className = "status" + (kind ? " " + kind : "");
 }
 
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const JS_HIGHLIGHT_PATTERN =
+  /(\/\*[\s\S]*?\*\/|\/\/[^\n]*)|(`(?:\\.|[^`\\])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|(\b\d+\.?\d*\b)|\b(const|let|var|function|return|if|else|for|while|new|typeof|of|in|true|false|null|undefined|async|await|try|catch|finally|throw|class|extends|this|break|continue|switch|case|default|do|yield|static|import|export|from|delete|instanceof|void)\b|\b(pm|console|Math|JSON|Object|Array|Boolean|Number|String|Date|RegExp|Promise|Map|Set)\b/g;
+
+/** Very small, dependency-free JS syntax highlighter (comments/strings/numbers/keywords/globals) for read-only script previews. */
+function highlightJs(code) {
+  const escaped = escapeHtml(code);
+  return escaped.replace(JS_HIGHLIGHT_PATTERN, (match, comment, str, num, keyword, globalName) => {
+    if (comment) return `<span class="tok-comment">${match}</span>`;
+    if (str) return `<span class="tok-string">${match}</span>`;
+    if (num) return `<span class="tok-number">${match}</span>`;
+    if (keyword) return `<span class="tok-keyword">${match}</span>`;
+    if (globalName) return `<span class="tok-global">${match}</span>`;
+    return match;
+  });
+}
+
+/** Renders `code` as syntax-highlighted HTML into the element with `id`, keeping the raw text (for copy/download) in a data attribute. */
+function setCode(id, code) {
+  const el = $(id);
+  el.dataset.raw = code;
+  el.innerHTML = highlightJs(code);
+}
+
+/** Reads back the raw (unhighlighted) text previously set via setCode(). */
+function getCode(id) {
+  return $(id).dataset.raw || "";
+}
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: "POST",
@@ -80,7 +112,7 @@ async function generateScript() {
       method: selectedOp.method,
       status: $("status-input").value,
     });
-    $("script-output").value = script;
+    setCode("script-output", script);
     setStatus($("script-status"), "Done.", "ok");
   } catch (err) {
     setStatus($("script-status"), err.message, "error");
@@ -140,13 +172,13 @@ $("method-filter").addEventListener("change", applyFilters);
 $("regen-btn").addEventListener("click", generateScript);
 
 $("copy-btn").addEventListener("click", async () => {
-  await navigator.clipboard.writeText($("script-output").value);
+  await navigator.clipboard.writeText(getCode("script-output"));
   setStatus($("script-status"), "Copied to clipboard.", "ok");
 });
 
 $("download-btn").addEventListener("click", () => {
   if (!selectedOp) return;
-  const blob = new Blob([$("script-output").value], { type: "text/javascript" });
+  const blob = new Blob([getCode("script-output")], { type: "text/javascript" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `${selectedOp.method}-${selectedOp.path.replace(/[{}/]/g, "-").replace(/-+/g, "-")}.js`;
@@ -233,7 +265,7 @@ $("generator-build-btn").addEventListener("click", async () => {
 
     setStatus($("generator-status"), "Generating...", "");
     const { script } = await postJson("/api/generators/build", { selections });
-    $("generator-output").value = script;
+    setCode("generator-output", script);
     setStatus($("generator-status"), "Done.", "ok");
   } catch (err) {
     setStatus($("generator-status"), err.message, "error");
@@ -241,12 +273,12 @@ $("generator-build-btn").addEventListener("click", async () => {
 });
 
 $("generator-copy-btn").addEventListener("click", async () => {
-  await navigator.clipboard.writeText($("generator-output").value);
+  await navigator.clipboard.writeText(getCode("generator-output"));
   setStatus($("generator-status"), "Copied to clipboard.", "ok");
 });
 
 $("generator-download-btn").addEventListener("click", () => {
-  const blob = new Blob([$("generator-output").value], { type: "text/javascript" });
+  const blob = new Blob([getCode("generator-output")], { type: "text/javascript" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "pre-request.js";
