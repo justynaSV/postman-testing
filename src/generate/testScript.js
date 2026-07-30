@@ -6,17 +6,24 @@ function propAccess(expr, name) {
   return IDENTIFIER_RE.test(name) ? `${expr}.${name}` : `${expr}['${name}']`;
 }
 
+/** Label used for a field living directly on `response` or a nested object. */
+function ownFieldLabel(contextLabel, fieldName) {
+  return contextLabel ? `"${contextLabel}" object contains "${fieldName}"` : `Response contains "${fieldName}"`;
+}
+
+/** Label used for a field living on an item of an array (root array or a named array-of-objects field). */
+function arrayItemFieldLabel(arrLabel, fieldName) {
+  return arrLabel ? `Each "${arrLabel}" item contains "${fieldName}"` : `Each item contains "${fieldName}"`;
+}
+
 /**
  * Builds the pm.test() lines for a single field's "own" assertion
  * (existence + format/type/enum), NOT including children/items recursion.
  * Returns { title, chain } where `chain` is the Chai expression appended
  * after `pm.expect(<parentExpr>).to.haveOwnProperty('<name>')`.
+ * `label` is the fully-built label text (see ownFieldLabel/arrayItemFieldLabel).
  */
-function buildOwnCheck(field, contextLabel) {
-  const label = contextLabel
-    ? `"${contextLabel}" object contains "${field.name}"`
-    : `Response contains "${field.name}"`;
-
+function buildOwnCheck(field, label) {
   if (field.type === "object") {
     return { title: `${label} attribute as an object`, chain: `.that.is.an('object')` };
   }
@@ -54,15 +61,18 @@ function buildOwnCheck(field, contextLabel) {
  * `array.forEach(item => pm.expect(item)...)` style for validating every
  * entry's format/enum/type. Returns undefined if there's nothing meaningful
  * to check (e.g. items schema has no type/format/enum at all).
+ * `arrLabel` is the array field's name (undefined/null for a root array).
  */
-function buildArrayItemCheck(field) {
+function buildArrayItemCheck(field, arrLabel) {
   const items = field.items;
   if (!items || items.type === "object") return undefined;
+
+  const itemLabel = arrLabel ? `"${arrLabel}" item` : "item";
 
   const regex = resolveRegex(field.name, items.format);
   if (regex) {
     return {
-      title: `Each "${field.name}" item is in ${regex.description}`,
+      title: `Each ${itemLabel} is in ${regex.description}`,
       chain: `.to.match(${regex.varName})`,
       regex,
     };
@@ -70,14 +80,14 @@ function buildArrayItemCheck(field) {
 
   if (items.enum && items.enum.length > 0) {
     return {
-      title: `Each "${field.name}" item has a valid value`,
+      title: `Each ${itemLabel} has a valid value`,
       chain: `.to.be.oneOf(${JSON.stringify(items.enum)})`,
     };
   }
 
   if (items.type) {
     return {
-      title: `Each "${field.name}" item is of type ${items.type}`,
+      title: `Each ${itemLabel} is of type ${items.type}`,
       chain: `.to.be.a('${items.type}')`,
     };
   }
@@ -109,8 +119,123 @@ class ScriptBuilder {
   }
 }
 
+/**
+ * Emits one pm.test() block, optionally nesting its body inside a sequence of
+ * wrapper statements - `array.forEach((item) => { ... })` loops and/or
+ * `if (guard) { ... }` existence guards (for optional fields checked
+ * per-item). `wraps` is an ordered list of `{ kind: 'forEach', arrExpr,
+ * itemVar }` or `{ kind: 'guard', condition }` entries, applied outermost
+ * first in the order given - order matters, e.g. a guard for an optional
+ * array must precede the forEach that iterates it. `bodyFn(bodyIndent)`
+ * pushes the actual assertion line(s) at the resulting innermost indent.
+ */
+function emitTest(builder, indent, title, wraps, bodyFn) {
+  builder.push(`pm.test('${title.replace(/'/g, "\\'")}', () => {`, indent);
+  let cur = indent + 1;
+  for (const wrap of wraps) {
+    if (wrap.kind === "forEach") {
+      builder.push(`${wrap.arrExpr}.forEach((${wrap.itemVar}) => {`, cur);
+    } else {
+      builder.push(`if (${wrap.condition}) {`, cur);
+    }
+    cur++;
+  }
+  bodyFn(cur);
+  for (let i = wraps.length - 1; i >= 0; i--) {
+    cur--;
+    builder.push(wraps[i].kind === "forEach" ? `});` : `}`, cur);
+  }
+  builder.push(`});`, indent);
+  builder.push("", indent);
+}
+
+/** Picks a non-colliding forEach item variable name based on how many forEach wraps are already open. */
+function itemVarForDepth(wraps) {
+  const depth = wraps.filter((w) => w.kind === "forEach").length;
+  return depth === 0 ? "item" : `item${depth + 1}`;
+}
+
+/**
+ * Renders a single field's checks for an item living inside a forEach loop
+ * (i.e. an object field of an array, at any nesting depth). Unlike
+ * `renderField` (used for the plain response-object case), the existence
+ * guard for optional fields must live *inside* the forEach body (since only
+ * some items may have the field), so guards are accumulated in `wraps` and
+ * threaded through recursion instead of wrapping the whole pm.test call.
+ */
+function renderForEachField(builder, field, itemExpr, indent, label, wraps) {
+  const own = buildOwnCheck(field, label);
+  builder.registerRegex(own.regex);
+  const assertionLine = `pm.expect(${itemExpr}).to.haveOwnProperty('${field.name}')${own.chain};`;
+  const fieldRef = propAccess(itemExpr, field.name);
+
+  const nextWraps = field.required
+    ? wraps
+    : [...wraps, { kind: "guard", condition: `${itemExpr}.hasOwnProperty('${field.name}')` }];
+
+  emitTest(builder, indent, own.title, nextWraps, (bodyIndent) => {
+    builder.push(assertionLine, bodyIndent);
+  });
+
+  if (field.type === "object" && field.children && field.children.length > 0) {
+    for (const child of field.children) {
+      renderForEachField(builder, child, fieldRef, indent, ownFieldLabel(field.name, child.name), nextWraps);
+    }
+  }
+
+  if (field.type === "array") {
+    renderArrayChecks(builder, fieldRef, field, indent, field.name, nextWraps);
+  }
+}
+
+/**
+ * Renders the "not empty" + per-item checks for an array field, whether it's
+ * the root response itself (`arrLabel` undefined) or a named array-of-objects
+ * field at any nesting depth. Every item is validated via `.forEach(...)`
+ * (not just the first), matching the team's real hand-written style.
+ */
+function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
+  const notEmptyTitle = arrLabel ? `"${arrLabel}" array is not empty` : "Response array is not empty";
+  emitTest(builder, indent, notEmptyTitle, wraps, (bodyIndent) => {
+    builder.push(`pm.expect(${arrExpr}.length).to.be.above(0);`, bodyIndent);
+  });
+
+  const items = field.items;
+  if (!items) return;
+
+  const itemVar = itemVarForDepth(wraps);
+  const itemWraps = [...wraps, { kind: "forEach", arrExpr, itemVar }];
+
+  if (items.type === "object" && items.children && items.children.length > 0) {
+    const itemLabel = arrLabel ? `"${arrLabel}" item` : "item";
+    emitTest(builder, indent, `Each ${itemLabel} is an object`, itemWraps, (bodyIndent) => {
+      builder.push(`pm.expect(${itemVar}).to.be.an('object');`, bodyIndent);
+    });
+
+    for (const child of items.children) {
+      renderForEachField(builder, child, itemVar, indent, arrayItemFieldLabel(arrLabel, child.name), itemWraps);
+    }
+  } else {
+    const itemCheck = buildArrayItemCheck(field, arrLabel);
+    if (itemCheck) {
+      builder.registerRegex(itemCheck.regex);
+      emitTest(builder, indent, itemCheck.title, itemWraps, (bodyIndent) => {
+        builder.push(`pm.expect(${itemVar})${itemCheck.chain};`, bodyIndent);
+      });
+    }
+  }
+}
+
+/** Renders checks for a response whose top-level schema is itself an array. */
+function renderRootArray(builder, field, indent) {
+  emitTest(builder, indent, "Response is an array", [], (bodyIndent) => {
+    builder.push(`pm.expect(response).to.be.an('array');`, bodyIndent);
+  });
+  renderArrayChecks(builder, "response", field, indent, undefined, []);
+}
+
 function renderField(builder, field, parentExpr, indent, contextLabel) {
-  const own = buildOwnCheck(field, contextLabel);
+  const own = buildOwnCheck(field, ownFieldLabel(contextLabel, field.name));
   builder.registerRegex(own.regex);
 
   const emitOwnTest = (useIndent) => {
@@ -130,32 +255,7 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
     }
 
     if (field.type === "array") {
-      builder.push(`pm.test('"${field.name}" array is not empty', () => {`, innerIndent);
-      builder.push(`pm.expect(${fieldRef}.length).to.be.above(0);`, innerIndent + 1);
-      builder.push(`});`, innerIndent);
-      builder.push("", innerIndent);
-
-      if (field.items && field.items.type === "object" && field.items.children && field.items.children.length > 0) {
-        builder.push(`if (${fieldRef}.length > 0) {`, innerIndent);
-        const itemRef = `${fieldRef}[0]`;
-        for (const child of field.items.children) {
-          renderField(builder, child, itemRef, innerIndent + 1, `${field.name}[0]`);
-        }
-        builder.trimTrailingBlankLines();
-        builder.push(`}`, innerIndent);
-        builder.push("", innerIndent);
-      } else {
-        const itemCheck = buildArrayItemCheck(field);
-        if (itemCheck) {
-          builder.registerRegex(itemCheck.regex);
-          builder.push(`pm.test('${itemCheck.title.replace(/'/g, "\\'")}', () => {`, innerIndent);
-          builder.push(`${fieldRef}.forEach((item) => {`, innerIndent + 1);
-          builder.push(`pm.expect(item)${itemCheck.chain};`, innerIndent + 2);
-          builder.push(`});`, innerIndent + 1);
-          builder.push(`});`, innerIndent);
-          builder.push("", innerIndent);
-        }
-      }
+      renderArrayChecks(builder, fieldRef, field, innerIndent, field.name, []);
     }
   };
 
@@ -188,7 +288,11 @@ function generateTestScript({ fields, statusCode, title }) {
   // built first so we know exactly which regex constants are actually used.
   const bodyBuilder = new ScriptBuilder();
   for (const field of fields) {
-    renderField(bodyBuilder, field, "response", 0, undefined);
+    if (field.isRoot) {
+      renderRootArray(bodyBuilder, field, 0);
+    } else {
+      renderField(bodyBuilder, field, "response", 0, undefined);
+    }
   }
 
   const statusTitle = title || `Verify response status code is ${statusCode}`;

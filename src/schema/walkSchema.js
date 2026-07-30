@@ -69,13 +69,29 @@ function buildFieldSpec(name, schema, parentPath, required) {
 }
 
 /**
- * Entry point: walk a top-level response/request body schema (must be an
- * object schema) and return the list of top-level FieldSpecs.
+ * Entry point: walk a top-level response/request body schema and return the
+ * list of top-level FieldSpecs. Handles two root shapes:
+ *  - an object schema: returns its properties as usual.
+ *  - an array schema (e.g. a response that's a bare JSON array): returns a
+ *    single synthetic FieldSpec with `isRoot: true` and `name: null`
+ *    representing the response itself, so the generator can emit
+ *    array/item checks directly against `response` instead of a named
+ *    property. Any other root shape (primitive) returns no fields.
  */
 function walkSchema(rootSchema) {
-  if (!rootSchema || rootSchema.type !== "object") {
+  if (!rootSchema) return [];
+
+  if (rootSchema.type === "array") {
+    const field = buildFieldSpec("response", rootSchema, [], true);
+    field.name = null;
+    field.isRoot = true;
+    return [field];
+  }
+
+  if (rootSchema.type !== "object") {
     return [];
   }
+
   return walkObjectProperties(rootSchema, []);
 }
 
