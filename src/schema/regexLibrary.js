@@ -46,6 +46,7 @@ const REGEX_BY_FORMAT = {
 // explicit `format` but the name strongly implies one (common in real APIs).
 const REGEX_BY_NAME_HEURISTIC = [
   { test: /slug$/i, key: "slug" },
+  { test: /^id$/i, key: "uuid" },
   { test: /(createdBy|updatedBy|modifiedBy|deletedBy)$/i, key: "uuid" },
 ];
 

@@ -16,6 +16,18 @@ function arrayItemFieldLabel(arrLabel, fieldName) {
   return arrLabel ? `Each "${arrLabel}" item contains "${fieldName}"` : `Each item contains "${fieldName}"`;
 }
 
+/** Assertion line checking an array isn't empty, meant to be appended into the array's own existence/type pm.test. */
+function notEmptyAssertionLine(arrExpr) {
+  return `pm.expect(${arrExpr}.length).to.be.above(0);`;
+}
+
+/** A bare "id" field resolving to a UUID is always server-generated, so it never needs an existence guard. */
+function isAlwaysGeneratedId(field) {
+  if (!field.name || !/^id$/i.test(field.name)) return false;
+  const regex = resolveRegex(field.name, field.format);
+  return Boolean(regex && regex.varName === "uuidRegex");
+}
+
 /**
  * Builds the pm.test() lines for a single field's "own" assertion
  * (existence + format/type/enum), NOT including children/items recursion.
@@ -25,11 +37,11 @@ function arrayItemFieldLabel(arrLabel, fieldName) {
  */
 function buildOwnCheck(field, label) {
   if (field.type === "object") {
-    return { title: `${label} attribute as an object`, chain: `.that.is.an('object')` };
+    return { title: `${label} attribute as an object`, chain: `.to.be.an('object')` };
   }
 
   if (field.type === "array") {
-    return { title: `${label} attribute as an array`, chain: `.that.is.an('array')` };
+    return { title: `${label} attribute as an array`, chain: `.to.be.an('array')` };
   }
 
   const regex = resolveRegex(field.name, field.format);
@@ -99,6 +111,7 @@ class ScriptBuilder {
   constructor() {
     this.lines = [];
     this.usedRegex = new Map(); // varName -> pattern
+    this.declaredVars = new Set();
   }
 
   push(line, indent = 0) {
@@ -109,6 +122,13 @@ class ScriptBuilder {
     if (regex && !this.usedRegex.has(regex.varName)) {
       this.usedRegex.set(regex.varName, regex.pattern);
     }
+  }
+
+  /** Reserves `name` as a shorthand variable name; returns null if it's already taken (caller falls back to the full path) or isn't a valid identifier. */
+  declareVar(name) {
+    if (!IDENTIFIER_RE.test(name) || this.declaredVars.has(name)) return null;
+    this.declaredVars.add(name);
+    return name;
   }
 
   /** Drops any trailing blank lines already pushed, so a closing `}` doesn't end up with an empty line right before it. */
@@ -169,12 +189,18 @@ function renderForEachField(builder, field, itemExpr, indent, label, wraps) {
   const assertionLine = `pm.expect(${itemExpr}).to.haveOwnProperty('${field.name}')${own.chain};`;
   const fieldRef = propAccess(itemExpr, field.name);
 
-  const nextWraps = field.required
+  // Object fields and generated "id" (uuid) fields are treated as always present (unlike other
+  // scalar/array fields) - nested objects are practically always populated, and an id is always
+  // server-generated - only an object's own optional children get individual guards below.
+  const nextWraps = field.required || field.type === "object" || isAlwaysGeneratedId(field)
     ? wraps
     : [...wraps, { kind: "guard", condition: `${itemExpr}.hasOwnProperty('${field.name}')` }];
 
   emitTest(builder, indent, own.title, nextWraps, (bodyIndent) => {
     builder.push(assertionLine, bodyIndent);
+    if (field.type === "array") {
+      builder.push(notEmptyAssertionLine(fieldRef), bodyIndent);
+    }
   });
 
   if (field.type === "object" && field.children && field.children.length > 0) {
@@ -195,11 +221,6 @@ function renderForEachField(builder, field, itemExpr, indent, label, wraps) {
  * (not just the first), matching the team's real hand-written style.
  */
 function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
-  const notEmptyTitle = arrLabel ? `"${arrLabel}" array is not empty` : "Response array is not empty";
-  emitTest(builder, indent, notEmptyTitle, wraps, (bodyIndent) => {
-    builder.push(`pm.expect(${arrExpr}.length).to.be.above(0);`, bodyIndent);
-  });
-
   const items = field.items;
   if (!items) return;
 
@@ -230,6 +251,7 @@ function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
 function renderRootArray(builder, field, indent) {
   emitTest(builder, indent, "Response is an array", [], (bodyIndent) => {
     builder.push(`pm.expect(response).to.be.an('array');`, bodyIndent);
+    builder.push(notEmptyAssertionLine("response"), bodyIndent);
   });
   renderArrayChecks(builder, "response", field, indent, undefined, []);
 }
@@ -238,19 +260,31 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
   const own = buildOwnCheck(field, ownFieldLabel(contextLabel, field.name));
   builder.registerRegex(own.regex);
 
+  const fieldRef = propAccess(parentExpr, field.name);
+
   const emitOwnTest = (useIndent) => {
     builder.push(`pm.test('${own.title.replace(/'/g, "\\'")}', () => {`, useIndent);
     builder.push(`pm.expect(${parentExpr}).to.haveOwnProperty('${field.name}')${own.chain};`, useIndent + 1);
+    if (field.type === "array") {
+      builder.push(notEmptyAssertionLine(fieldRef), useIndent + 1);
+    }
     builder.push(`});`, useIndent);
     builder.push("", useIndent);
   };
 
-  const fieldRef = propAccess(parentExpr, field.name);
-
   const emitChildren = (innerIndent) => {
     if (field.type === "object" && field.children && field.children.length > 0) {
+      // With more than one attribute to check, a shorthand variable shortens every child test.
+      let childParentExpr = fieldRef;
+      if (field.children.length > 1) {
+        const varName = builder.declareVar(field.name);
+        if (varName) {
+          builder.push(`let ${varName} = ${fieldRef};`, innerIndent);
+          childParentExpr = varName;
+        }
+      }
       for (const child of field.children) {
-        renderField(builder, child, fieldRef, innerIndent, field.name);
+        renderField(builder, child, childParentExpr, innerIndent, field.name);
       }
     }
 
@@ -259,7 +293,10 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
     }
   };
 
-  if (field.required) {
+  // Object fields and generated "id" (uuid) fields are treated as always present (unlike other
+  // scalar/array fields) - nested objects are practically always populated, and an id is always
+  // server-generated - only an object's own optional children get individual guards below.
+  if (field.required || field.type === "object" || isAlwaysGeneratedId(field)) {
     emitOwnTest(indent);
     emitChildren(indent);
   } else {
@@ -299,9 +336,13 @@ function generateTestScript({ fields, statusCode, title }) {
   builder.push(`pm.test('${statusTitle.replace(/'/g, "\\'")}', () => {`);
   builder.push(`pm.response.to.have.status(${statusCode});`, 1);
   builder.push(`});`);
-  builder.push("");
-  builder.push(`const response = pm.response.json();`);
-  builder.push("");
+
+  // No fields means no response body to parse/assert on - skip the parse line entirely.
+  if (fields.length > 0) {
+    builder.push("");
+    builder.push(`const response = pm.response.json();`);
+    builder.push("");
+  }
 
   if (bodyBuilder.usedRegex.size > 0) {
     for (const [varName, pattern] of bodyBuilder.usedRegex) {
@@ -317,7 +358,7 @@ function generateTestScript({ fields, statusCode, title }) {
     builder.lines.pop();
   }
 
-  return builder.lines.join("\n") + "\n";
+  return builder.lines.join("\n");
 }
 
 module.exports = { generateTestScript };
