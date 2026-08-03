@@ -37,17 +37,17 @@ function isAlwaysGeneratedId(field) {
  */
 function buildOwnCheck(field, label) {
   if (field.type === "object") {
-    return { title: `${label} attribute as an object`, chain: `.to.be.an('object')` };
+    return { title: `${label} object`, chain: `.to.be.an('object')` };
   }
 
   if (field.type === "array") {
-    return { title: `${label} attribute as an array`, chain: `.to.be.an('array')` };
+    return { title: `${label} array`, chain: `.to.be.an('array')` };
   }
 
   const regex = resolveRegex(field.name, field.format);
   if (regex) {
     return {
-      title: `${label} attribute in ${regex.description}`,
+      title: `${label} which is a ${regex.description.replace(/ format$/, "")}`,
       chain: `.to.match(${regex.varName})`,
       regex,
     };
@@ -61,7 +61,7 @@ function buildOwnCheck(field, label) {
   }
 
   if (field.type) {
-    return { title: `${label} attribute of type ${field.type}`, chain: `.to.be.a('${field.type}')` };
+    return { title: `${label} which is a ${field.type}`, chain: `.to.be.a('${field.type}')` };
   }
 
   return { title: `${label} attribute`, chain: "" };
@@ -310,6 +310,28 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
 }
 
 /**
+ * For status 400 (validation error) responses, only "errors[].message" and
+ * "errors[].code" are worth asserting - any other top-level field and any
+ * other attribute on each error item is skipped, per the simplified
+ * error-testing rule. Returns `fields` unchanged if there's no top-level
+ * "errors" array to restrict.
+ */
+function restrictToErrorFields(fields) {
+  const errorsField = fields.find((f) => f.name === "errors" && f.type === "array");
+  if (!errorsField || !errorsField.items || !errorsField.items.children) return fields;
+
+  return [
+    {
+      ...errorsField,
+      items: {
+        ...errorsField.items,
+        children: errorsField.items.children.filter((c) => c.name === "message" || c.name === "code"),
+      },
+    },
+  ];
+}
+
+/**
  * Generates a full, standards-compliant Postman test script (as a string)
  * for a single endpoint response.
  *
@@ -320,11 +342,12 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
  */
 function generateTestScript({ fields, statusCode, title }) {
   const builder = new ScriptBuilder();
+  const effectiveFields = statusCode === 400 ? restrictToErrorFields(fields) : fields;
 
   // Body of the script (everything after the status test + response parse),
   // built first so we know exactly which regex constants are actually used.
   const bodyBuilder = new ScriptBuilder();
-  for (const field of fields) {
+  for (const field of effectiveFields) {
     if (field.isRoot) {
       renderRootArray(bodyBuilder, field, 0);
     } else {
@@ -338,7 +361,7 @@ function generateTestScript({ fields, statusCode, title }) {
   builder.push(`});`);
 
   // No fields means no response body to parse/assert on - skip the parse line entirely.
-  if (fields.length > 0) {
+  if (effectiveFields.length > 0) {
     builder.push("");
     builder.push(`const response = pm.response.json();`);
     builder.push("");

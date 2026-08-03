@@ -47,6 +47,7 @@ const REGEX_BY_FORMAT = {
 const REGEX_BY_NAME_HEURISTIC = [
   { test: /slug$/i, key: "slug" },
   { test: /^id$/i, key: "uuid" },
+  { test: /Id$/, key: "uuid" },
   { test: /(createdBy|updatedBy|modifiedBy|deletedBy)$/i, key: "uuid" },
 ];
 

@@ -214,14 +214,14 @@ pm.expect(response.roles).to.include("admin");
 
 **❌ Avoid:**
 ```javascript
-pm.test(`Response contains id in UUID format`, () => {
+pm.test(`Response contains id which is a UUID`, () => {
     pm.expect(response.id).to.match(uuidRegex);
 });
 ```
 
 **✅ Use:**
 ```javascript
-pm.test(`Response contains id in UUID format`, () => {
+pm.test(`Response contains id which is a UUID`, () => {
     pm.expect(response).to.haveOwnProperty('id').to.match(uuidRegex);
 });
 ```
@@ -239,13 +239,13 @@ pm.test(`Response contains id in UUID format`, () => {
 
 **❌ Avoid:**
 ```javascript
-pm.test(`"General" object contains "createdAt" attribute in ISO date format`, () => {
+pm.test(`"General" object contains "createdAt" which is a ISO date`, () => {
     pm.expect(response.general.createdAt, `createdAt element should exist`).to.exist;
     pm.expect(response.general.createdAt, `createdAt should be a valid ISO 8601 datetime string`)
         .to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{0,3}Z$/i);
 });
 
-pm.test(`"General" object contains "directSaleVariantId" attribute in UUID format`, () => {
+pm.test(`"General" object contains "directSaleVariantId" which is a UUID`, () => {
     pm.expect(response.general.directSaleVariantId, `directSaleVariantId element should exist`).to.exist;
     pm.expect(response.general.directSaleVariantId, `directSaleVariantId should be a valid UUID-v4 string`)
         .to.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
@@ -254,11 +254,11 @@ pm.test(`"General" object contains "directSaleVariantId" attribute in UUID forma
 
 **✅ Use:**
 ```javascript
-pm.test('"General" object contains "createdAt" attribute in ISO date format', () => {
+pm.test('"General" object contains "createdAt" which is a ISO date', () => {
     pm.expect(response.general).to.haveOwnProperty('createdAt').to.match(dateRegex);
 });
 
-pm.test('"General" object contains "directSaleVariantId" attribute in UUID format', () => {
+pm.test('"General" object contains "directSaleVariantId" which is a UUID', () => {
     pm.expect(response.general).to.haveOwnProperty('directSaleVariantId').to.match(uuidRegex);
 });
 ```
@@ -293,11 +293,11 @@ pm.expect(response.isActive).to.be.true;
 
 **❌ Avoid:**
 ```javascript
-pm.test(`"General" object contains "createdAt" attribute in ISO date format`, () => {
+pm.test(`"General" object contains "createdAt" which is a ISO date`, () => {
     pm.expect(response.general.createdAt).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{0,3}Z$/i);
 });
 
-pm.test(`"General" object contains "directSaleVariantId" attribute in UUID format`, () => {
+pm.test(`"General" object contains "directSaleVariantId" which is a UUID`, () => {
     pm.expect(response.general.directSaleVariantId).to.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
 });
 ```
@@ -313,11 +313,11 @@ const response = pm.response.json();
 const uuidRegex = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/;
 const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 
-pm.test('"General" object contains "directSaleVariantId" attribute in UUID format', () => {
+pm.test('"General" object contains "directSaleVariantId" which is a UUID', () => {
     pm.expect(response.general).to.haveOwnProperty('directSaleVariantId').to.match(uuidRegex);
 });
 
-pm.test('"General" object contains "createdAt" attribute in ISO date format', () => {
+pm.test('"General" object contains "createdAt" which is a ISO date', () => {
     pm.expect(response.general).to.haveOwnProperty('createdAt').to.match(dateRegex);
 });
 ```
@@ -396,7 +396,7 @@ const uuidRegex = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/;
 const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 const expectedUserId = pm.collectionVariables.get("expectedUserId");
 
-pm.test("Response contains id in UUID format", () => {
+pm.test("Response contains id which is a UUID", () => {
     pm.expect(response).to.haveOwnProperty('id').to.match(uuidRegex);
 });
 
@@ -404,11 +404,11 @@ pm.test("Response body matches expected object", () => {
     pm.expect(response.data).to.eql({ id: 1, name: "Test" });
 });
 
-pm.test('"General" object contains "directSaleVariantId" attribute in UUID format', () => {
+pm.test('"General" object contains "directSaleVariantId" which is a UUID', () => {
     pm.expect(response.general).to.haveOwnProperty('directSaleVariantId').to.match(uuidRegex);
 });
 
-pm.test('"General" object contains "createdAt" attribute in ISO date format', () => {
+pm.test('"General" object contains "createdAt" which is a ISO date', () => {
     pm.expect(response.general).to.haveOwnProperty('createdAt').to.match(dateRegex);
 });
 
