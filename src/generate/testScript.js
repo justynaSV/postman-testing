@@ -28,6 +28,12 @@ function isAlwaysGeneratedId(field) {
   return Boolean(regex && regex.varName === "uuidRegex");
 }
 
+/** When an id-named field (bare "id" or a camelCase "...Id" suffix, e.g. deliveryNoteId) is the
+ * only attribute in the response, it's always present regardless of format. */
+function isSoleIdField(field, siblingCount) {
+  return siblingCount === 1 && Boolean(field.name) && (/^id$/i.test(field.name) || /Id$/.test(field.name));
+}
+
 /**
  * Builds the pm.test() lines for a single field's "own" assertion
  * (existence + format/type/enum), NOT including children/items recursion.
@@ -183,16 +189,17 @@ function itemVarForDepth(wraps) {
  * some items may have the field), so guards are accumulated in `wraps` and
  * threaded through recursion instead of wrapping the whole pm.test call.
  */
-function renderForEachField(builder, field, itemExpr, indent, label, wraps) {
+function renderForEachField(builder, field, itemExpr, indent, label, wraps, siblingCount) {
   const own = buildOwnCheck(field, label);
   builder.registerRegex(own.regex);
   const assertionLine = `pm.expect(${itemExpr}).to.haveOwnProperty('${field.name}')${own.chain};`;
   const fieldRef = propAccess(itemExpr, field.name);
 
-  // Object fields and generated "id" (uuid) fields are treated as always present (unlike other
-  // scalar/array fields) - nested objects are practically always populated, and an id is always
-  // server-generated - only an object's own optional children get individual guards below.
-  const nextWraps = field.required || field.type === "object" || isAlwaysGeneratedId(field)
+  // Object fields, generated "id" (uuid) fields, and a sole "id" field are treated as always
+  // present (unlike other scalar/array fields) - nested objects are practically always populated,
+  // an id is always server-generated, and a response consisting only of an id always has it -
+  // only an object's own optional children get individual guards below.
+  const nextWraps = field.required || field.type === "object" || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)
     ? wraps
     : [...wraps, { kind: "guard", condition: `${itemExpr}.hasOwnProperty('${field.name}')` }];
 
@@ -205,7 +212,7 @@ function renderForEachField(builder, field, itemExpr, indent, label, wraps) {
 
   if (field.type === "object" && field.children && field.children.length > 0) {
     for (const child of field.children) {
-      renderForEachField(builder, child, fieldRef, indent, ownFieldLabel(field.name, child.name), nextWraps);
+      renderForEachField(builder, child, fieldRef, indent, ownFieldLabel(field.name, child.name), nextWraps, field.children.length);
     }
   }
 
@@ -234,7 +241,7 @@ function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
     });
 
     for (const child of items.children) {
-      renderForEachField(builder, child, itemVar, indent, arrayItemFieldLabel(arrLabel, child.name), itemWraps);
+      renderForEachField(builder, child, itemVar, indent, arrayItemFieldLabel(arrLabel, child.name), itemWraps, items.children.length);
     }
   } else {
     const itemCheck = buildArrayItemCheck(field, arrLabel);
@@ -256,7 +263,7 @@ function renderRootArray(builder, field, indent) {
   renderArrayChecks(builder, "response", field, indent, undefined, []);
 }
 
-function renderField(builder, field, parentExpr, indent, contextLabel) {
+function renderField(builder, field, parentExpr, indent, contextLabel, siblingCount) {
   const own = buildOwnCheck(field, ownFieldLabel(contextLabel, field.name));
   builder.registerRegex(own.regex);
 
@@ -284,7 +291,7 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
         }
       }
       for (const child of field.children) {
-        renderField(builder, child, childParentExpr, innerIndent, field.name);
+        renderField(builder, child, childParentExpr, innerIndent, field.name, field.children.length);
       }
     }
 
@@ -293,10 +300,11 @@ function renderField(builder, field, parentExpr, indent, contextLabel) {
     }
   };
 
-  // Object fields and generated "id" (uuid) fields are treated as always present (unlike other
-  // scalar/array fields) - nested objects are practically always populated, and an id is always
-  // server-generated - only an object's own optional children get individual guards below.
-  if (field.required || field.type === "object" || isAlwaysGeneratedId(field)) {
+  // Object fields, generated "id" (uuid) fields, and a sole "id" field are treated as always
+  // present (unlike other scalar/array fields) - nested objects are practically always populated,
+  // an id is always server-generated, and a response consisting only of an id always has it -
+  // only an object's own optional children get individual guards below.
+  if (field.required || field.type === "object" || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)) {
     emitOwnTest(indent);
     emitChildren(indent);
   } else {
@@ -351,7 +359,7 @@ function generateTestScript({ fields, statusCode, title }) {
     if (field.isRoot) {
       renderRootArray(bodyBuilder, field, 0);
     } else {
-      renderField(bodyBuilder, field, "response", 0, undefined);
+      renderField(bodyBuilder, field, "response", 0, undefined, effectiveFields.length);
     }
   }
 
@@ -364,15 +372,14 @@ function generateTestScript({ fields, statusCode, title }) {
   if (effectiveFields.length > 0) {
     builder.push("");
     builder.push(`const response = pm.response.json();`);
-    builder.push("");
   }
 
   if (bodyBuilder.usedRegex.size > 0) {
     for (const [varName, pattern] of bodyBuilder.usedRegex) {
       builder.push(`const ${varName} = ${pattern};`);
     }
-    builder.push("");
   }
+  builder.push("");
 
   builder.lines.push(...bodyBuilder.lines);
 
