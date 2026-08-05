@@ -189,17 +189,17 @@ function itemVarForDepth(wraps) {
  * some items may have the field), so guards are accumulated in `wraps` and
  * threaded through recursion instead of wrapping the whole pm.test call.
  */
-function renderForEachField(builder, field, itemExpr, indent, label, wraps, siblingCount) {
+function renderForEachField(builder, field, itemExpr, indent, label, wraps, siblingCount, depth = 0) {
   const own = buildOwnCheck(field, label);
   builder.registerRegex(own.regex);
   const assertionLine = `pm.expect(${itemExpr}).to.haveOwnProperty('${field.name}')${own.chain};`;
   const fieldRef = propAccess(itemExpr, field.name);
 
-  // Object fields, generated "id" (uuid) fields, and a sole "id" field are treated as always
-  // present (unlike other scalar/array fields) - nested objects are practically always populated,
-  // an id is always server-generated, and a response consisting only of an id always has it -
-  // only an object's own optional children get individual guards below.
-  const nextWraps = field.required || field.type === "object" || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)
+  // Generated "id" (uuid) fields and a sole "id" field are treated as always present, same as a
+  // top-level (depth 0) object - nested objects deeper than that still respect `required` since
+  // they're not guaranteed to always be populated - only an object's own optional children get
+  // individual guards below.
+  const nextWraps = field.required || (field.type === "object" && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)
     ? wraps
     : [...wraps, { kind: "guard", condition: `${itemExpr}.hasOwnProperty('${field.name}')` }];
 
@@ -212,7 +212,7 @@ function renderForEachField(builder, field, itemExpr, indent, label, wraps, sibl
 
   if (field.type === "object" && field.children && field.children.length > 0) {
     for (const child of field.children) {
-      renderForEachField(builder, child, fieldRef, indent, ownFieldLabel(field.name, child.name), nextWraps, field.children.length);
+      renderForEachField(builder, child, fieldRef, indent, ownFieldLabel(field.name, child.name), nextWraps, field.children.length, depth + 1);
     }
   }
 
@@ -263,7 +263,7 @@ function renderRootArray(builder, field, indent) {
   renderArrayChecks(builder, "response", field, indent, undefined, []);
 }
 
-function renderField(builder, field, parentExpr, indent, contextLabel, siblingCount) {
+function renderField(builder, field, parentExpr, indent, contextLabel, siblingCount, depth = 0) {
   const own = buildOwnCheck(field, ownFieldLabel(contextLabel, field.name));
   builder.registerRegex(own.regex);
 
@@ -291,7 +291,7 @@ function renderField(builder, field, parentExpr, indent, contextLabel, siblingCo
         }
       }
       for (const child of field.children) {
-        renderField(builder, child, childParentExpr, innerIndent, field.name, field.children.length);
+        renderField(builder, child, childParentExpr, innerIndent, field.name, field.children.length, depth + 1);
       }
     }
 
@@ -300,11 +300,11 @@ function renderField(builder, field, parentExpr, indent, contextLabel, siblingCo
     }
   };
 
-  // Object fields, generated "id" (uuid) fields, and a sole "id" field are treated as always
-  // present (unlike other scalar/array fields) - nested objects are practically always populated,
-  // an id is always server-generated, and a response consisting only of an id always has it -
-  // only an object's own optional children get individual guards below.
-  if (field.required || field.type === "object" || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)) {
+  // Generated "id" (uuid) fields and a sole "id" field are treated as always present, same as a
+  // top-level (depth 0) object - nested objects deeper than that still respect `required` since
+  // they're not guaranteed to always be populated - only an object's own optional children get
+  // individual guards below.
+  if (field.required || (field.type === "object" && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)) {
     emitOwnTest(indent);
     emitChildren(indent);
   } else {
