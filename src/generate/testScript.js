@@ -47,7 +47,7 @@ function buildOwnCheck(field, label) {
   }
 
   if (field.type === "array") {
-    return { title: `${label} array`, chain: `.to.be.an('array')` };
+    return { title: `${label} array which is not empty`, chain: `.to.be.an('array')` };
   }
 
   const regex = resolveRegex(field.name, field.format);
@@ -196,10 +196,10 @@ function renderForEachField(builder, field, itemExpr, indent, label, wraps, sibl
   const fieldRef = propAccess(itemExpr, field.name);
 
   // Generated "id" (uuid) fields and a sole "id" field are treated as always present, same as a
-  // top-level (depth 0) object - nested objects deeper than that still respect `required` since
-  // they're not guaranteed to always be populated - only an object's own optional children get
-  // individual guards below.
-  const nextWraps = field.required || (field.type === "object" && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)
+  // top-level (depth 0) object or array - nested objects/arrays deeper than that still respect
+  // `required` since they're not guaranteed to always be populated - only an object's own
+  // optional children get individual guards below.
+  const nextWraps = field.required || ((field.type === "object" || field.type === "array") && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)
     ? wraps
     : [...wraps, { kind: "guard", condition: `${itemExpr}.hasOwnProperty('${field.name}')` }];
 
@@ -231,10 +231,28 @@ function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
   const items = field.items;
   if (!items) return;
 
-  const itemVar = itemVarForDepth(wraps);
-  const itemWraps = [...wraps, { kind: "forEach", arrExpr, itemVar }];
+  const isObjectItems = items.type === "object" && items.children && items.children.length > 0;
 
-  if (items.type === "object" && items.children && items.children.length > 0) {
+  // Hoist `const <name> = <fullPath>;` once so every per-item test's forEach references the
+  // short name instead of repeating the full path. Only safe when the array itself is reachable
+  // outside a forEach body (i.e. it lives directly on response or nested only inside plain
+  // objects) - a loop item variable like `item` doesn't exist outside its own forEach callback,
+  // so arrays nested inside another array's forEach keep using their full item-relative path.
+  let effectiveArrExpr = arrExpr;
+  const insideForEach = wraps.some((w) => w.kind === "forEach");
+  if (isObjectItems && !insideForEach && field.name) {
+    const varName = builder.declareVar(field.name);
+    if (varName) {
+      builder.push(`const ${varName} = ${arrExpr};`, indent);
+      builder.push("", indent);
+      effectiveArrExpr = varName;
+    }
+  }
+
+  const itemVar = itemVarForDepth(wraps);
+  const itemWraps = [...wraps, { kind: "forEach", arrExpr: effectiveArrExpr, itemVar }];
+
+  if (isObjectItems) {
     const itemLabel = arrLabel ? `"${arrLabel}" item` : "item";
     emitTest(builder, indent, `Each ${itemLabel} is an object`, itemWraps, (bodyIndent) => {
       builder.push(`pm.expect(${itemVar}).to.be.an('object');`, bodyIndent);
@@ -301,10 +319,10 @@ function renderField(builder, field, parentExpr, indent, contextLabel, siblingCo
   };
 
   // Generated "id" (uuid) fields and a sole "id" field are treated as always present, same as a
-  // top-level (depth 0) object - nested objects deeper than that still respect `required` since
-  // they're not guaranteed to always be populated - only an object's own optional children get
-  // individual guards below.
-  if (field.required || (field.type === "object" && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)) {
+  // top-level (depth 0) object or array - nested objects/arrays deeper than that still respect
+  // `required` since they're not guaranteed to always be populated - only an object's own
+  // optional children get individual guards below.
+  if (field.required || ((field.type === "object" || field.type === "array") && depth === 0) || isAlwaysGeneratedId(field) || isSoleIdField(field, siblingCount)) {
     emitOwnTest(indent);
     emitChildren(indent);
   } else {
