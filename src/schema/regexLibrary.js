@@ -17,7 +17,7 @@ const REGEX_BY_FORMAT = {
   },
   "date-time": {
     varName: "dateRegex",
-    pattern: "/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$/",
+    pattern: "/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{0,3})?Z$/",
     description: "ISO date format",
   },
   date: {

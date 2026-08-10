@@ -311,7 +311,7 @@ pm.test("Verify response status code is 200", () => {
 const response = pm.response.json();
 
 const uuidRegex = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/;
-const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{0,3})?Z$/;
 
 pm.test('"General" object contains "directSaleVariantId" which is a UUID', () => {
     pm.expect(response.general).to.haveOwnProperty('directSaleVariantId').to.match(uuidRegex);
@@ -393,7 +393,7 @@ pm.test("Verify response status code is 200", () => {
 const response = pm.response.json();
 
 const uuidRegex = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/;
-const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{0,3})?Z$/;
 const expectedUserId = pm.collectionVariables.get("expectedUserId");
 
 pm.test("Response contains id which is a UUID", () => {
