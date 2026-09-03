@@ -156,6 +156,8 @@ async function loadSpec() {
     } else {
       result = await postJson("/api/load", {
         spec: $("spec-input").value,
+        headerKey: $("header-key-input").value,
+        headerValue: $("header-value-input").value,
       });
     }
     const { title, operations: ops } = result;

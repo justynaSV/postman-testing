@@ -112,5 +112,6 @@ If your spec URL needs an auth header, add it to any of the commands above:
 | `No 2xx response documented for ...` | The endpoint has no documented success response in the spec. Pass `--status <code>` explicitly if you want to generate a test for an error response (e.g. 404). |
 | Error mentioning `_postman_id` | You pointed the tool at an exported **Postman collection** file instead of the actual **OpenAPI/Swagger** spec. Ask for the real spec URL/file instead. |
 | Spec fails to load with an auth/401-style error | Add `--header "Authorization: Bearer <token>"` (CLI) or fill in the header fields (Web UI / Interactive mode). |
+| Spec URL fails with `HTTP ERROR 500`, but the URL loads fine in a browser and an uploaded/downloaded copy of the same JSON works | Some Swagger 2.0 APIs (e.g. ASP.NET/Swashbuckle) reject requests missing a specific header, most commonly `Accept-Language`. Try adding `--header "Accept-Language: en-US,en;q=0.9"` (CLI), the header prompt (Interactive mode), or the header name/value fields (Web UI). |
 
 For details on exactly what each generated test checks, see [POSTMAN_TEST_STANDARDS.md](POSTMAN_TEST_STANDARDS.md) and the main [README.md](README.md).

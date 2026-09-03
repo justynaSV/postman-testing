@@ -71,6 +71,11 @@ function getResponseSchema(operation, statusCode) {
       `No response documented for status ${statusCode} (and no "default"). Available statuses: ${Object.keys(responses).join(", ") || "none"}`
     );
   }
+
+  // Swagger 2.0: schema lives directly on the response object.
+  if (response.schema) return response.schema;
+
+  // OpenAPI 3.x: schema lives under content["application/json"] (or first content type).
   const content = response.content || {};
   const jsonContent = content["application/json"] || Object.values(content)[0];
   return jsonContent ? jsonContent.schema : undefined;
@@ -80,11 +85,15 @@ function getResponseSchema(operation, statusCode) {
  * Extracts the JSON schema for an operation's request body, if any.
  */
 function getRequestBodySchema(operation) {
-  const requestBody = operation.requestBody;
-  if (!requestBody) return undefined;
-  const content = requestBody.content || {};
-  const jsonContent = content["application/json"] || Object.values(content)[0];
-  return jsonContent ? jsonContent.schema : undefined;
+  // OpenAPI 3.x
+  if (operation.requestBody) {
+    const content = operation.requestBody.content || {};
+    const jsonContent = content["application/json"] || Object.values(content)[0];
+    return jsonContent ? jsonContent.schema : undefined;
+  }
+  // Swagger 2.0: body param is in `parameters` with in: "body".
+  const bodyParam = (operation.parameters || []).find((p) => p.in === "body");
+  return bodyParam ? bodyParam.schema : undefined;
 }
 
 /**

@@ -8,6 +8,7 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
+    "test": "node --test",
     "start": "node bin/postman-test-gen.js",
     "example:list": "node bin/postman-test-gen.js list --spec examples/sample-openapi.yaml",
     "example:script": "node bin/postman-test-gen.js script --spec examples/sample-openapi.yaml --path /users/{userId} --method get",
