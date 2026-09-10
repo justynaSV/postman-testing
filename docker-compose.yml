@@ -1,0 +1,7 @@
+services:
+  postman-testing:
+    build: .
+    container_name: postman-testing
+    restart: unless-stopped
+    ports:
+      - "4747:4747"
