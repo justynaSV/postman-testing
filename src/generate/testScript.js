@@ -253,11 +253,6 @@ function renderArrayChecks(builder, arrExpr, field, indent, arrLabel, wraps) {
   const itemWraps = [...wraps, { kind: "forEach", arrExpr: effectiveArrExpr, itemVar }];
 
   if (isObjectItems) {
-    const itemLabel = arrLabel ? `"${arrLabel}" item` : "item";
-    emitTest(builder, indent, `Each ${itemLabel} is an object`, itemWraps, (bodyIndent) => {
-      builder.push(`pm.expect(${itemVar}).to.be.an('object');`, bodyIndent);
-    });
-
     for (const child of items.children) {
       renderForEachField(builder, child, itemVar, indent, arrayItemFieldLabel(arrLabel, child.name), itemWraps, items.children.length);
     }
