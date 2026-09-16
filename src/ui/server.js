@@ -111,7 +111,7 @@ function startServer(port) {
     }
   });
 
-  return app.listen(port);
+  return app.listen(port, "0.0.0.0");
 }
 
 module.exports = { startServer };
