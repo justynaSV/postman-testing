@@ -5,3 +5,5 @@ services:
     restart: unless-stopped
     ports:
       - "4747:4747"
+    dns:
+      - "10.206.3.2"
